@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const role_controller_1 = require("../controllers/role.controller");
+const authMiddleware_1 = require("../middlewares/authMiddleware");
+const router = (0, express_1.Router)();
+router.use(authMiddleware_1.protect);
+router.get('/', authMiddleware_1.requireBusinessOwner, role_controller_1.getRoles);
+router.post('/', authMiddleware_1.superadminOnly, role_controller_1.createRole);
+router.put('/:id', authMiddleware_1.superadminOnly, role_controller_1.updateRole);
+router.delete('/:id', authMiddleware_1.superadminOnly, role_controller_1.deleteRole);
+exports.default = router;
