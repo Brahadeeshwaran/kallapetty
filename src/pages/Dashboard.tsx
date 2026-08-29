@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../lib/api';
-import { Activity, DollarSign, Receipt, TrendingUp, Building2, Store, Users, X } from 'lucide-react';
+import { Activity, DollarSign, Receipt, TrendingUp, Building2, Store, Users } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Link, Navigate } from 'react-router-dom';
 import Modal from '../components/Modal';
@@ -19,7 +19,7 @@ export default function Dashboard() {
   const [founderLists, setFounderLists] = useState<any>({ businesses: [], shops: [], users: [] });
   const [dashboardModal, setDashboardModal] = useState<string | null>(null);
 
-  const isSuperAdmin = user?.is_superadmin || user?.role === 'super_admin';
+  const isSuperAdmin = user?.is_superadmin || (user as any)?.role === 'super_admin';
 
   useEffect(() => {
     if (isSuperAdmin) {

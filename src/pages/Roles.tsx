@@ -212,7 +212,7 @@ export default function Roles() {
     }
   };
 
-  const togglePermission = (permId: string, formState: any, setFormState: any) => {
+  const togglePermission = (permId: string, _formState: any, setFormState: any) => {
     setFormState((prev: any) => {
       const perms = prev.permissions.includes(permId)
         ? prev.permissions.filter((p: string) => p !== permId)

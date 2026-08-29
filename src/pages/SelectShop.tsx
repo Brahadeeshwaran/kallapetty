@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+// Removed unused import
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Store, LogOut } from 'lucide-react';

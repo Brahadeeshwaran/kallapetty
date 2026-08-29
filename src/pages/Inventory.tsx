@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Edit, X } from 'lucide-react';
+import { Trash2, Edit } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';

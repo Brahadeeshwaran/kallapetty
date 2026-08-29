@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Store, UserPlus, Edit, Activity, Users } from 'lucide-react';
+import { Building2, Store, UserPlus, Edit } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { formatDate, selectStyles } from '../lib/utils';
@@ -9,7 +9,7 @@ import Modal from '../components/Modal';
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState<'businesses' | 'shops' | 'users'>('businesses');
   
-  const [stats, setStats] = useState<any>(null);
+  const [, setStats] = useState<any>(null);
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [shops, setShops] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
