@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShoppingBag, Search, Plus, Trash2, CheckCircle2, FileText } from 'lucide-react';
+import { ShoppingBag, Search, Trash2, CheckCircle2, FileText } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import Select from 'react-select';

@@ -146,7 +146,7 @@ export default function Staff() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (_id: string) => {
     if (!window.confirm('Are you sure you want to delete this staff member?')) return;
     try {
       // NOTE: User deletion might not be supported if we only deactivate them usually. 
