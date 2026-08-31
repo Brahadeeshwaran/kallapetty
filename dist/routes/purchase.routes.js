@@ -8,7 +8,9 @@ router.use(authMiddleware_1.protect);
 // Purchase Orders
 router.post('/orders', purchase_controller_1.createPurchaseOrder);
 router.get('/orders', purchase_controller_1.getPurchaseOrders);
+router.put('/orders/:id', purchase_controller_1.updatePurchaseOrder);
 router.post('/orders/:id/receive', purchase_controller_1.receivePurchaseOrder);
+router.post('/orders/:id/pay', purchase_controller_1.payPurchaseOrder);
 // Direct Invoices (if needed)
 router.post('/', purchase_controller_1.createPurchaseInvoice);
 router.get('/', purchase_controller_1.getPurchaseInvoices);

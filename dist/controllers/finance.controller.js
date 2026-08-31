@@ -52,6 +52,7 @@ const getPaymentsAndExpenses = async (req, res, next) => {
       FROM payments p
       LEFT JOIN customers c ON p.customer_id = c.id
       WHERE p.shop_id = ${shop_id}
+      AND DATE(p.created_at AT TIME ZONE 'Asia/Kolkata') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
       ORDER BY p.created_at DESC
     `;
         const formattedPayments = payments.map(p => {
@@ -64,6 +65,7 @@ const getPaymentsAndExpenses = async (req, res, next) => {
         const expenses = await (0, db_1.default) `
       SELECT * FROM expenses
       WHERE shop_id = ${shop_id}
+      AND DATE(created_at AT TIME ZONE 'Asia/Kolkata') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
       ORDER BY created_at DESC
     `;
         res.json({ status: 'success', data: { payments: formattedPayments, expenses } });

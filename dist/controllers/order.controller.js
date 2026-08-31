@@ -7,6 +7,12 @@ exports.updateDeliveryStatus = exports.markOrderPaid = exports.getOrders = expor
 const db_1 = __importDefault(require("../models/db"));
 const app_validator_1 = require("../validators/app.validator");
 const access_1 = require("../utils/access");
+const fs_1 = __importDefault(require("fs"));
+const originalError = console.error;
+console.error = function (...args) {
+    fs_1.default.appendFileSync('b:\\Brahadeesh\\Projects\\KallaPetty\\Backend\\debug.log', args.map(a => typeof a === 'object' ? JSON.stringify(a, Object.getOwnPropertyNames(a)) : a).join(' ') + '\n');
+    originalError.apply(console, args);
+};
 const createOrder = async (req, res, next) => {
     try {
         const data = app_validator_1.createOrderSchema.parse(req.body);
@@ -29,7 +35,7 @@ const createOrder = async (req, res, next) => {
         const calculatedItems = data.items.map(item => {
             const product = productById.get(item.product_id);
             const price = Number(product.price);
-            const taxAmount = price * item.qty * (Number(product.tax_rate) / 100);
+            const taxAmount = price * item.qty * (Number(product.tax_rate || 0) / 100);
             return { ...item, price, tax_amount: taxAmount, product };
         });
         const totalAmount = calculatedItems.reduce((sum, item) => sum + item.price * item.qty + item.tax_amount, 0);
@@ -37,12 +43,12 @@ const createOrder = async (req, res, next) => {
         if (data.discount_amount > totalAmount)
             throw new access_1.HttpError(400, 'Discount cannot exceed bill total');
         const totalToPay = totalAmount - data.discount_amount;
-        if (data.amount_paid > totalToPay)
+        if (data.amount_paid > totalToPay + 0.05)
             throw new access_1.HttpError(400, 'Amount paid cannot exceed bill total');
-        if (data.amount_paid < totalToPay && !data.customer_id) {
+        if (data.amount_paid < totalToPay - 0.05 && !data.customer_id) {
             return res.status(400).json({ status: 'error', message: 'Partial payment requires a registered customer.' });
         }
-        const status = data.amount_paid === 0 ? 'unpaid' : data.amount_paid === totalToPay ? 'paid' : 'partial';
+        const status = data.amount_paid < 0.05 ? 'unpaid' : data.amount_paid >= totalToPay - 0.05 ? 'paid' : 'partial';
         const created_by = req.user?.id || null;
         const newOrder = await db_1.default.begin(async (tx) => {
             const orders = await tx `
@@ -79,9 +85,24 @@ const createOrder = async (req, res, next) => {
                     const result = await tx `
             UPDATE products SET stock = stock - ${item.qty}
             WHERE id = ${item.product_id} AND stock >= ${item.qty}
+            RETURNING stock
           `;
-                    if (result.count !== 1)
+                    if (result.length !== 1)
                         throw new access_1.HttpError(400, `Insufficient stock for ${item.product.name}`);
+                    const newStock = result[0].stock;
+                    const oldStock = newStock + item.qty;
+                    await tx `
+            INSERT INTO product_stock_logs ${tx({
+                        product_id: item.product_id,
+                        shop_id: data.shop_id,
+                        change_type: 'sale',
+                        qty_change: -item.qty,
+                        old_stock: oldStock,
+                        new_stock: newStock,
+                        reference_id: order.id,
+                        created_by
+                    })}
+          `;
                 }
             }
             if (data.amount_paid > 0) {
@@ -101,6 +122,7 @@ const createOrder = async (req, res, next) => {
         res.status(201).json({ status: 'success', data: newOrder });
     }
     catch (error) {
+        console.error('CREATE ORDER ERROR:', error);
         next(error);
     }
 };
