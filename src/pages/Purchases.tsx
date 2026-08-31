@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShoppingBag, Search, Trash2, CheckCircle2, FileText, Edit, Plus, Eye } from 'lucide-react';
+import { Search, Trash2, CheckCircle2, Edit, Plus, Eye } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -32,7 +32,7 @@ export default function Purchases() {
   const [payModal, setPayModal] = useState<any>(null);
   const [payForm, setPayForm] = useState<any>({ payment_amount: 0, payment_mode: 'Cash', reference_number: '' });
 
-  const [viewModal, setViewModal] = useState<{type: 'po' | 'invoice', data: any} | null>(null);
+  const [viewModal, setViewModal] = useState<{ type: 'po' | 'invoice', data: any } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -384,26 +384,26 @@ export default function Purchases() {
                     </td>
                     <td data-label="Total Amount" style={{ textAlign: 'right', fontWeight: 600 }}>₹{Number(o.total_amount).toFixed(2)}</td>
                     <td data-label="Actions" style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                          <button title="View Details" onClick={() => setViewModal({ type: 'po', data: o })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', background: 'transparent', border: '1px solid var(--border-light)' }}>
-                            <Eye size={14} />
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button title="View Details" onClick={() => setViewModal({ type: 'po', data: o })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', background: 'transparent', border: '1px solid var(--border-light)' }}>
+                          <Eye size={14} />
+                        </button>
+                        {o.status !== 'completed' && (
+                          <button onClick={() => openReceiveModal(o)} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <CheckCircle2 size={14} /> Receive & QC
                           </button>
-                          {o.status !== 'completed' && (
-                            <button onClick={() => openReceiveModal(o)} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                              <CheckCircle2 size={14} /> Receive & QC
-                            </button>
-                          )}
-                          {Number(o.amount_paid || 0) < Number(o.total_amount) && (
-                            <button onClick={() => { setPayModal(o); setPayForm({ payment_amount: Math.max(0, Number(o.total_amount) - Number(o.amount_paid || 0)), payment_mode: 'Cash', reference_number: '' }); }} className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--bg-hover)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }}>
-                              Pay PO
-                            </button>
-                          )}
-                          {(o.status === 'pending' || o.status === 'draft') && (
-                            <button title="Edit PO" onClick={() => openEditPO(o)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                              <Edit size={14} />
-                            </button>
-                          )}
-                        </div>
+                        )}
+                        {Number(o.amount_paid || 0) < Number(o.total_amount) && (
+                          <button onClick={() => { setPayModal(o); setPayForm({ payment_amount: Math.max(0, Number(o.total_amount) - Number(o.amount_paid || 0)), payment_mode: 'Cash', reference_number: '' }); }} className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--bg-hover)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }}>
+                            Pay PO
+                          </button>
+                        )}
+                        {(o.status === 'pending' || o.status === 'draft') && (
+                          <button title="Edit PO" onClick={() => openEditPO(o)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                            <Edit size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -502,22 +502,22 @@ export default function Purchases() {
                           <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--danger)', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
                             <span style={{ fontWeight: 600 }}>⚠️ Loss Alert (MRP: ₹{item.selling_price})</span>
                             {item.show_mrp_input ? (
-                                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                    <input type="number" step="0.01" value={item.new_mrp || ''} onChange={e => updateReceiveItem(idx, 'new_mrp', e.target.value)} style={{ padding: '6px 8px', fontSize: '14px', width: '90px', borderRadius: '4px', border: '1px solid var(--border-light)' }} placeholder="New MRP" />
-                                    <button type="button" onClick={() => {
-                                      if (item.new_mrp && !isNaN(Number(item.new_mrp))) {
-                                        handleUpdateMRP(item.product_id, Number(item.new_mrp), true);
-                                        updateReceiveItem(idx, 'show_mrp_input', false);
-                                      }
-                                    }} style={{ background: 'var(--success)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>Save</button>
-                                    <button type="button" onClick={() => updateReceiveItem(idx, 'show_mrp_input', false)} style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>Cancel</button>
-                                  </div>
-                                ) : (
-                                  <button type="button" onClick={() => {
-                                    updateReceiveItem(idx, 'new_mrp', Math.ceil(Number(item.purchase_price) * 1.2));
-                                    updateReceiveItem(idx, 'show_mrp_input', true);
-                                  }} style={{ background: 'var(--danger)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>Fix MRP</button>
-                                )}
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <input type="number" step="0.01" value={item.new_mrp || ''} onChange={e => updateReceiveItem(idx, 'new_mrp', e.target.value)} style={{ padding: '6px 8px', fontSize: '14px', width: '90px', borderRadius: '4px', border: '1px solid var(--border-light)' }} placeholder="New MRP" />
+                                <button type="button" onClick={() => {
+                                  if (item.new_mrp && !isNaN(Number(item.new_mrp))) {
+                                    handleUpdateMRP(item.product_id, Number(item.new_mrp), true);
+                                    updateReceiveItem(idx, 'show_mrp_input', false);
+                                  }
+                                }} style={{ background: 'var(--success)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>Save</button>
+                                <button type="button" onClick={() => updateReceiveItem(idx, 'show_mrp_input', false)} style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>Cancel</button>
+                              </div>
+                            ) : (
+                              <button type="button" onClick={() => {
+                                updateReceiveItem(idx, 'new_mrp', Math.ceil(Number(item.purchase_price) * 1.2));
+                                updateReceiveItem(idx, 'show_mrp_input', true);
+                              }} style={{ background: 'var(--danger)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>Fix MRP</button>
+                            )}
                           </div>
                         )}
                       </td>
@@ -597,7 +597,7 @@ export default function Purchases() {
                 <p style={{ fontWeight: 600 }}>{new Date(viewModal.data.created_at).toLocaleDateString()}</p>
               </div>
             </div>
-            
+
             <div className="table-container" style={{ borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border-light)' }}>
               <table>
                 <thead>
@@ -646,7 +646,7 @@ export default function Purchases() {
                 </tbody>
               </table>
             </div>
-            
+
             <div style={{ padding: '20px', display: 'flex', justifyContent: 'flex-end' }}>
               <div style={{ width: '250px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
