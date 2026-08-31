@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.receivePurchaseOrderSchema = exports.createPurchaseOrderSchema = exports.createSupplierPaymentSchema = exports.createPurchaseInvoiceSchema = exports.createSupplierSchema = exports.updateDeliveryStatusSchema = exports.createExpenseSchema = exports.createPaymentSchema = exports.createOrderSchema = exports.updateProductSchema = exports.updateShopSchema = exports.updateBusinessSchema = exports.createProductSchema = exports.createCustomerSchema = exports.createShopSchema = exports.createBusinessSchema = void 0;
+exports.payPurchaseOrderSchema = exports.receivePurchaseOrderSchema = exports.createPurchaseOrderSchema = exports.createSupplierPaymentSchema = exports.createPurchaseInvoiceSchema = exports.updateSupplierSchema = exports.createSupplierSchema = exports.updateDeliveryStatusSchema = exports.createExpenseSchema = exports.createPaymentSchema = exports.createOrderSchema = exports.updateProductSchema = exports.updateShopSchema = exports.updateBusinessSchema = exports.createProductSchema = exports.createCustomerSchema = exports.createShopSchema = exports.createBusinessSchema = void 0;
 const zod_1 = require("zod");
 exports.createBusinessSchema = zod_1.z.object({
     name: zod_1.z.string().min(3),
@@ -95,6 +95,12 @@ exports.createSupplierSchema = zod_1.z.object({
     gst_number: zod_1.z.string().optional(),
     address: zod_1.z.string().optional(),
 });
+exports.updateSupplierSchema = zod_1.z.object({
+    name: zod_1.z.string().min(3).optional(),
+    phone: zod_1.z.string().optional(),
+    gst_number: zod_1.z.string().optional(),
+    address: zod_1.z.string().optional(),
+});
 exports.createPurchaseInvoiceSchema = zod_1.z.object({
     shop_id: zod_1.z.string().uuid(),
     supplier_id: zod_1.z.string().uuid(),
@@ -143,4 +149,9 @@ exports.receivePurchaseOrderSchema = zod_1.z.object({
     })).min(1),
     payment_amount: zod_1.z.coerce.number().nonnegative().default(0),
     payment_mode: zod_1.z.string().default('cash'),
+});
+exports.payPurchaseOrderSchema = zod_1.z.object({
+    payment_amount: zod_1.z.coerce.number().positive(),
+    payment_mode: zod_1.z.string().default('cash'),
+    reference_number: zod_1.z.string().optional(),
 });

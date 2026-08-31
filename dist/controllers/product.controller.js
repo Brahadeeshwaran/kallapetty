@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteProduct = exports.updateProduct = exports.getProductByBarcode = exports.getProducts = exports.createProduct = void 0;
+exports.getProductStockLogs = exports.deleteProduct = exports.updateProduct = exports.getProductByBarcode = exports.getProducts = exports.createProduct = void 0;
 const db_1 = __importDefault(require("../models/db"));
 const app_validator_1 = require("../validators/app.validator");
 const access_1 = require("../utils/access");
@@ -103,6 +103,21 @@ const updateProduct = async (req, res, next) => {
       UPDATE products SET ${(0, db_1.default)(data)}
       WHERE id = ${id} RETURNING *
     `;
+        // Log if stock changed
+        if (data.stock !== undefined && data.stock !== existing.stock) {
+            const qty_change = data.stock - existing.stock;
+            await (0, db_1.default) `
+        INSERT INTO product_stock_logs ${(0, db_1.default)({
+                product_id: id,
+                shop_id: existing.shop_id,
+                change_type: 'manual_adjust',
+                qty_change,
+                old_stock: existing.stock,
+                new_stock: data.stock,
+                created_by: req.user?.id || null
+            })}
+      `;
+        }
         res.json({ status: 'success', data: products[0] });
     }
     catch (error) {
@@ -127,3 +142,28 @@ const deleteProduct = async (req, res, next) => {
     }
 };
 exports.deleteProduct = deleteProduct;
+const getProductStockLogs = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const existings = await (0, db_1.default) `SELECT * FROM products WHERE id = ${id}`;
+        const existing = existings[0];
+        if (!existing)
+            return res.status(404).json({ status: 'error', message: 'Product not found' });
+        // Check permission using assertShopAccess or check if user is admin
+        if (!req.user?.is_superadmin && !req.user?.is_business_owner) {
+            await (0, access_1.assertShopAccess)(req.user, existing.shop_id);
+        }
+        const logs = await (0, db_1.default) `
+      SELECT l.*, u.full_name as created_by_name
+      FROM product_stock_logs l
+      LEFT JOIN users u ON l.created_by = u.id
+      WHERE l.product_id = ${id}
+      ORDER BY l.created_at DESC
+    `;
+        res.json({ status: 'success', data: logs });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getProductStockLogs = getProductStockLogs;

@@ -93,8 +93,8 @@ router.get('/', product_controller_1.getProducts);
  *       404:
  *         description: Product not found
  */
-const product_controller_2 = require("../controllers/product.controller");
-router.get('/barcode/:barcode', product_controller_2.getProductByBarcode);
-router.put('/:id', product_controller_2.updateProduct);
-router.delete('/:id', product_controller_2.deleteProduct);
+router.get('/barcode/:barcode', product_controller_1.getProductByBarcode);
+router.get('/:id/stock-logs', product_controller_1.getProductStockLogs);
+router.put('/:id', product_controller_1.updateProduct);
+router.delete('/:id', product_controller_1.deleteProduct);
 exports.default = router;

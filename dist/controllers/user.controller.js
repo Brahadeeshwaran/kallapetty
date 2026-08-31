@@ -81,7 +81,6 @@ const getUsers = async (req, res, next) => {
         SELECT u.*,
                (
                   SELECT json_agg(json_build_object(
-                    'id', us.id,
                     'user_id', us.user_id,
                     'shop_id', us.shop_id,
                     'role_id', us.role_id,
@@ -101,7 +100,6 @@ const getUsers = async (req, res, next) => {
         SELECT u.*,
                (
                   SELECT json_agg(json_build_object(
-                    'id', us.id,
                     'user_id', us.user_id,
                     'shop_id', us.shop_id,
                     'role_id', us.role_id,
