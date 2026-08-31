@@ -80,10 +80,10 @@ export default function AdminSettings() {
     });
   };
 
-  const handleDaysChange = (days: number) => {
+  const handleDaysChange = (days: any) => {
     if (!customPayModal) return;
     const newDate = new Date(customPayModal.baseDate);
-    newDate.setDate(newDate.getDate() + days);
+    if (days !== '') newDate.setDate(newDate.getDate() + Number(days));
     setCustomPayModal({ ...customPayModal, daysToAdd: days, targetDate: newDate.toISOString().split('T')[0] });
   };
 
@@ -463,7 +463,7 @@ export default function AdminSettings() {
 
                 <div style={{ flex: 1 }}>
                   <label>Number of Days to Add</label>
-                  <input type="number" value={customPayModal.daysToAdd} onChange={e => handleDaysChange(parseInt(e.target.value) || 0)} required />
+                  <input type="number" value={customPayModal.daysToAdd} onChange={e => handleDaysChange(e.target.value === '' ? '' : parseInt(e.target.value))} required />
                 </div>
              </div>
              

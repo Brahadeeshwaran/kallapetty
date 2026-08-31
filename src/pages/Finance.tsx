@@ -94,7 +94,7 @@ export default function Finance() {
               <div className="flex-row gap-4">
                 <div style={{ flex: 1 }}>
                   <label>Amount Received (₹)</label>
-                  <input type="number" step="0.01" value={paymentModal.amount} onChange={e => setPaymentModal({...paymentModal, amount: e.target.value})} required />
+                  <input type="number" step="0.01" autoComplete="off" name="pay_amt_fin" value={paymentModal.amount} onChange={e => setPaymentModal({...paymentModal, amount: e.target.value})} required />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label>Received Via</label>

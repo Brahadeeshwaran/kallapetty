@@ -58,6 +58,9 @@ export default function InvoicePrint() {
   const finalTotal = parseFloat(order.total_amount) - parseFloat(order.discount_amount);
   const amountPaid = parseFloat(order.amount_paid) || 0;
   const balanceDue = Math.max(0, finalTotal - amountPaid);
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const copyLabel = urlParams.get('label') || '';
 
   if (isThermal) {
     return (
@@ -81,6 +84,7 @@ export default function InvoicePrint() {
           {business?.address && <p style={{ margin: '2px 0' }}>{business.address}</p>}
           {business?.gst_number && <p style={{ margin: '2px 0' }}>GSTIN: {business.gst_number}</p>}
           <p style={{ margin: '2px 0' }}>Ph: {business?.owner_phone}</p>
+          {copyLabel && <p style={{ margin: '5px 0', fontWeight: 'bold', textTransform: 'uppercase' }}>{copyLabel} INVOICE</p>}
         </div>
 
         <div style={{ borderTop: '1px dashed #000', borderBottom: '1px dashed #000', padding: '5px 0', marginBottom: '10px' }}>
@@ -183,7 +187,9 @@ export default function InvoicePrint() {
           {business?.gst_number && <p style={{ margin: '5px 0', color: '#555', fontWeight: 'bold' }}>GSTIN: {business.gst_number}</p>}
         </div>
         <div style={{ textAlign: 'right' }}>
-          <h2 style={{ margin: 0, fontSize: '32px', color: '#666', textTransform: 'uppercase', letterSpacing: '2px' }}>TAX INVOICE</h2>
+          <h2 style={{ margin: 0, fontSize: '32px', color: '#666', textTransform: 'uppercase', letterSpacing: '2px' }}>
+            {copyLabel ? `${copyLabel} INVOICE` : 'TAX INVOICE'}
+          </h2>
           <div style={{ marginTop: '20px' }}>
             <p style={{ margin: '5px 0' }}><strong>Invoice No:</strong> {order.id.split('-')[0].toUpperCase()}</p>
             <p style={{ margin: '5px 0' }}><strong>Date:</strong> {formatDate(order.created_at)}</p>

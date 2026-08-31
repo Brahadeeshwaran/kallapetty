@@ -165,14 +165,22 @@ export default function Staff() {
           <h1 className="page-title">Staff Management</h1>
           <p className="page-subtitle">Manage your staff and assign them specific roles per shop</p>
         </div>
-        <button className="btn btn-primary" onClick={() => showForm ? setShowForm(false) : handleOpenNew()} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {showForm ? <X size={16} /> : <Plus size={16} />} {showForm ? 'Cancel' : 'Add Staff'}
-        </button>
+        {!showForm && (
+          <button className="btn btn-primary" onClick={() => handleOpenNew()} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Plus size={18} />
+            <span className="desktop-only">Add Staff</span>
+          </button>
+        )}
       </header>
 
       {showForm && (
         <div className="card" style={{ marginBottom: '24px', borderLeft: '4px solid var(--primary)' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>{isEditing ? 'Edit Staff Member' : 'New Staff Member'}</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>{isEditing ? 'Edit Staff Member' : 'New Staff Member'}</h3>
+            <button onClick={() => setShowForm(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+              <X size={20} />
+            </button>
+          </div>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
               <div>
@@ -264,9 +272,9 @@ export default function Staff() {
             : staff.length === 0 ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: '40px' }}>No staff members found</td></tr>) 
             : staff.map((u) => (
               <tr key={u.id}>
-                <td style={{ fontWeight: 600 }}>{u.full_name || 'No Name'}</td>
-                <td>{u.phone}</td>
-                <td>
+                <td data-label="Name" style={{ fontWeight: 600 }}>{u.full_name || 'No Name'}</td>
+                <td data-label="Phone">{u.phone}</td>
+                <td data-label="Assigned Shops & Roles">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {(u.user_shops || []).length === 0 ? (
                       <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>No assignments</span>
@@ -279,7 +287,7 @@ export default function Staff() {
                     )}
                   </div>
                 </td>
-                <td style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <td data-label="Action" style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                   <button onClick={() => handleOpenEdit(u)} style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Edit</button>
                   <button onClick={() => handleDelete(u.id)} style={{ background: 'var(--danger)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
                 </td>

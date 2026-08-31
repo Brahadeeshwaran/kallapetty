@@ -247,7 +247,7 @@ export default function Roles() {
 
             return (
               <tr key={i} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                <td style={{ fontWeight: 600, background: 'var(--bg-card)' }}>
+                <td data-label="Module" style={{ fontWeight: 600, background: 'var(--bg-card)' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: someChecked ? 'var(--accent-blue)' : 'var(--text-primary)' }}>
                     <input 
                       type="checkbox" 
@@ -259,7 +259,7 @@ export default function Roles() {
                     {mod.module}
                   </label>
                 </td>
-                <td style={{ background: 'var(--bg-app)' }}>
+                <td data-label="Permissions" style={{ background: 'var(--bg-app)' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                     {mod.actions.map(a => (
                       <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
@@ -314,15 +314,23 @@ export default function Roles() {
             />
           </div>
 
-          <button className="btn btn-primary" onClick={() => setShowForm(!showForm)} disabled={!selectedShopId} style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '40px' }}>
-            {showForm ? <X size={16} /> : <Plus size={16} />} {showForm ? 'Cancel' : 'Create Role'}
-          </button>
+          {!showForm && (
+            <button className="btn btn-primary" onClick={() => setShowForm(true)} disabled={!selectedShopId} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Plus size={18} />
+              <span className="desktop-only">Create Role</span>
+            </button>
+          )}
         </div>
       </header>
 
       {showForm && (
         <div className="card" style={{ marginBottom: '24px', borderLeft: '4px solid var(--accent-blue)' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>New Custom Role</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>New Custom Role</h3>
+            <button onClick={() => setShowForm(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+              <X size={20} />
+            </button>
+          </div>
           <form onSubmit={handleCreateRole}>
             <div style={{ maxWidth: '400px', marginBottom: '20px' }}>
               <label>Role Name</label>
@@ -356,10 +364,10 @@ export default function Roles() {
             : roles.length === 0 ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: '40px' }}>No roles defined</td></tr>) 
             : roles.map((r) => (
               <tr key={r.id}>
-                <td style={{ fontWeight: 600 }}>{r.name} {r.name === 'Owner' && <span style={{ fontSize: '11px', background: 'var(--accent-blue)', color: 'white', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>System Default</span>}</td>
-                <td>{r._count?.user_shops || 0}</td>
-                <td><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.permissions.length} permissions granted</span></td>
-                <td style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <td data-label="Role Name" style={{ fontWeight: 600 }}>{r.name} {r.name === 'Owner' && <span style={{ fontSize: '11px', background: 'var(--accent-blue)', color: 'white', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>System Default</span>}</td>
+                <td data-label="Assigned Users">{r._count?.user_shops || 0}</td>
+                <td data-label="Permissions"><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.permissions.length} permissions granted</span></td>
+                <td data-label="Action" style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                   <button onClick={() => setEditModal(r)} style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Edit</button>
                   {r.name !== 'Owner' && (
                     <button onClick={() => handleDeleteRole(r.id)} style={{ background: 'var(--danger)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Delete</button>

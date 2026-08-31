@@ -38,7 +38,7 @@ export default function Settings() {
           bank_details: data.bank_details || '',
           terms_conditions: data.terms_conditions || '',
           logo_url: data.logo_url || '',
-          invoice_format: data.invoice_format || 'thermal',
+          invoice_format: ['thermal', 'a4'].includes(data.invoice_format) ? data.invoice_format : 'thermal',
         });
       }
     } catch (error) {
