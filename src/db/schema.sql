@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS businesses (
   bank_details TEXT,
   terms_conditions TEXT,
   logo_url TEXT,
-  invoice_format VARCHAR(50) DEFAULT 'default',
+  invoice_format VARCHAR(50) DEFAULT 'thermal',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP,
   deleted_at TIMESTAMP,
@@ -118,6 +118,20 @@ CREATE TABLE IF NOT EXISTS products (
   deleted_by UUID
 );
 
+-- Product Stock Logs
+CREATE TABLE IF NOT EXISTS product_stock_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  change_type VARCHAR(50) NOT NULL,
+  qty_change INT NOT NULL,
+  old_stock INT NOT NULL,
+  new_stock INT NOT NULL,
+  reference_id UUID,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_by UUID
+);
+
 -- Orders
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -212,6 +226,7 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
   status VARCHAR(50) DEFAULT 'draft',
   total_amount NUMERIC(12, 2) DEFAULT 0,
+  amount_paid NUMERIC(12, 2) DEFAULT 0,
   expected_date TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP,

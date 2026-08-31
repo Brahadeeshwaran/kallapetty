@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createProduct, getProducts } from '../controllers/product.controller';
+import { createProduct, getProducts, getProductByBarcode, updateProduct, deleteProduct, getProductStockLogs } from '../controllers/product.controller';
 import { protect } from '../middlewares/authMiddleware';
 
 const router = Router();
@@ -96,8 +96,8 @@ router.get('/', getProducts);
  *       404:
  *         description: Product not found
  */
-import { getProductByBarcode, updateProduct, deleteProduct } from '../controllers/product.controller';
 router.get('/barcode/:barcode', getProductByBarcode);
+router.get('/:id/stock-logs', getProductStockLogs);
 router.put('/:id', updateProduct);
 router.delete('/:id', deleteProduct);
 

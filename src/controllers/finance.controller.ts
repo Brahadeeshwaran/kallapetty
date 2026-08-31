@@ -44,6 +44,7 @@ export const getPaymentsAndExpenses = async (req: AuthRequest, res: Response, ne
       FROM payments p
       LEFT JOIN customers c ON p.customer_id = c.id
       WHERE p.shop_id = ${shop_id}
+      AND DATE(p.created_at AT TIME ZONE 'Asia/Kolkata') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
       ORDER BY p.created_at DESC
     `;
     const formattedPayments = payments.map(p => {
@@ -57,6 +58,7 @@ export const getPaymentsAndExpenses = async (req: AuthRequest, res: Response, ne
     const expenses = await sql<Expense[]>`
       SELECT * FROM expenses
       WHERE shop_id = ${shop_id}
+      AND DATE(created_at AT TIME ZONE 'Asia/Kolkata') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
       ORDER BY created_at DESC
     `;
     

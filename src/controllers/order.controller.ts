@@ -4,6 +4,13 @@ import { Order } from '../models/types';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { createOrderSchema } from '../validators/app.validator';
 import { assertCustomerAccess, assertOrderAccess, assertShopAccess, assertShopPermission, HttpError } from '../utils/access';
+import fs from 'fs';
+
+const originalError = console.error;
+console.error = function(...args) {
+  fs.appendFileSync('b:\\Brahadeesh\\Projects\\KallaPetty\\Backend\\debug.log', args.map(a => typeof a === 'object' ? JSON.stringify(a, Object.getOwnPropertyNames(a)) : a).join(' ') + '\n');
+  originalError.apply(console, args);
+};
 
 export const createOrder = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -28,18 +35,18 @@ export const createOrder = async (req: AuthRequest, res: Response, next: NextFun
     const calculatedItems = data.items.map(item => {
       const product = productById.get(item.product_id)!;
       const price = Number(product.price);
-      const taxAmount = price * item.qty * (Number(product.tax_rate) / 100);
+      const taxAmount = price * item.qty * (Number(product.tax_rate || 0) / 100);
       return { ...item, price, tax_amount: taxAmount, product };
     });
     const totalAmount = calculatedItems.reduce((sum, item) => sum + item.price * item.qty + item.tax_amount, 0);
     const taxAmount = calculatedItems.reduce((sum, item) => sum + item.tax_amount, 0);
     if (data.discount_amount > totalAmount) throw new HttpError(400, 'Discount cannot exceed bill total');
     const totalToPay = totalAmount - data.discount_amount;
-    if (data.amount_paid > totalToPay) throw new HttpError(400, 'Amount paid cannot exceed bill total');
-    if (data.amount_paid < totalToPay && !data.customer_id) {
+    if (data.amount_paid > totalToPay + 0.05) throw new HttpError(400, 'Amount paid cannot exceed bill total');
+    if (data.amount_paid < totalToPay - 0.05 && !data.customer_id) {
       return res.status(400).json({ status: 'error', message: 'Partial payment requires a registered customer.' });
     }
-    const status = data.amount_paid === 0 ? 'unpaid' : data.amount_paid === totalToPay ? 'paid' : 'partial';
+    const status = data.amount_paid < 0.05 ? 'unpaid' : data.amount_paid >= totalToPay - 0.05 ? 'paid' : 'partial';
 
     const created_by = req.user?.id || null;
 
@@ -77,11 +84,27 @@ export const createOrder = async (req: AuthRequest, res: Response, next: NextFun
         `;
 
         if (!item.product.is_service) {
-          const result = await tx`
+          const result = await tx<any[]>`
             UPDATE products SET stock = stock - ${item.qty}
             WHERE id = ${item.product_id} AND stock >= ${item.qty}
+            RETURNING stock
           `;
-          if (result.count !== 1) throw new HttpError(400, `Insufficient stock for ${item.product.name}`);
+          if (result.length !== 1) throw new HttpError(400, `Insufficient stock for ${item.product.name}`);
+          
+          const newStock = result[0].stock;
+          const oldStock = newStock + item.qty;
+          await tx`
+            INSERT INTO product_stock_logs ${tx({
+              product_id: item.product_id,
+              shop_id: data.shop_id,
+              change_type: 'sale',
+              qty_change: -item.qty,
+              old_stock: oldStock,
+              new_stock: newStock,
+              reference_id: order.id,
+              created_by
+            })}
+          `;
         }
       }
 
@@ -102,7 +125,10 @@ export const createOrder = async (req: AuthRequest, res: Response, next: NextFun
     });
 
     res.status(201).json({ status: 'success', data: newOrder });
-  } catch (error) { next(error); }
+  } catch (error) { 
+    console.error('CREATE ORDER ERROR:', error);
+    next(error); 
+  }
 };
 
 export const getOrders = async (req: AuthRequest, res: Response, next: NextFunction) => {

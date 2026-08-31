@@ -2,7 +2,8 @@ import { Response, NextFunction } from 'express';
 import sql from '../models/db';
 import { PurchaseInvoice, PurchaseOrder } from '../models/types';
 import { AuthRequest } from '../middlewares/authMiddleware';
-import { createPurchaseInvoiceSchema, createPurchaseOrderSchema, receivePurchaseOrderSchema } from '../validators/app.validator';
+import { createPurchaseInvoiceSchema, createPurchaseOrderSchema, receivePurchaseOrderSchema, payPurchaseOrderSchema } from '../validators/app.validator';
+import { HttpError } from '../utils/access';
 
 export const createPurchaseInvoice = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -102,7 +103,7 @@ export const getPurchaseInvoices = async (req: AuthRequest, res: Response, next:
                   'qty_accepted', pii.qty_accepted,
                   'qty_rejected', pii.qty_rejected,
                   'purchase_price', pii.purchase_price,
-                  'product', json_build_object('name', p.name)
+                  'product', json_build_object('name', p.name, 'price', p.price)
                 ))
                 FROM purchase_invoice_items pii 
                 JOIN products p ON p.id = pii.product_id
@@ -160,6 +161,52 @@ export const createPurchaseOrder = async (req: AuthRequest, res: Response, next:
   } catch (error) { next(error); }
 };
 
+export const updatePurchaseOrder = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const data = createPurchaseOrderSchema.parse(req.body);
+    const total_amount = data.items.reduce((acc, item) => acc + (item.qty_ordered * item.unit_price), 0);
+    const created_by = req.user?.id || null;
+
+    const order = await sql.begin(async (tx) => {
+      const orders = await tx<PurchaseOrder[]>`
+        UPDATE purchase_orders SET ${tx({
+          supplier_id: data.supplier_id,
+          expected_date: data.expected_date ? new Date(data.expected_date) : null,
+          total_amount: total_amount,
+        })}
+        WHERE id = ${id} AND status IN ('pending', 'draft')
+        RETURNING *
+      `;
+      
+      if (orders.length === 0) {
+        throw new Error('Purchase order not found or cannot be edited (already received)');
+      }
+      const po = orders[0];
+
+      await tx`DELETE FROM purchase_order_items WHERE order_id = ${po.id}`;
+
+      for (const item of data.items) {
+        await tx`
+          INSERT INTO purchase_order_items ${tx({
+            order_id: po.id,
+            product_id: item.product_id,
+            qty_ordered: item.qty_ordered,
+            unit_price: item.unit_price,
+            created_by,
+          })}
+        `;
+      }
+      return po;
+    });
+    res.status(200).json({ status: 'success', data: order });
+  } catch (error: any) { 
+    if (error.message.includes('not found')) return res.status(400).json({ message: error.message });
+    next(error); 
+  }
+};
+
+
 export const getPurchaseOrders = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const shopId = req.query.shop_id as string;
@@ -183,8 +230,9 @@ export const getPurchaseOrders = async (req: AuthRequest, res: Response, next: N
                   'product_id', poi.product_id,
                   'qty_ordered', poi.qty_ordered,
                   'qty_received', poi.qty_received,
+                  'qty_rejected', poi.qty_rejected,
                   'unit_price', poi.unit_price,
-                  'product', json_build_object('name', p.name, 'stock', p.stock)
+                  'product', json_build_object('name', p.name, 'stock', p.stock, 'price', p.price)
                 ))
                 FROM purchase_order_items poi 
                 JOIN products p ON p.id = poi.product_id
@@ -252,10 +300,28 @@ export const receivePurchaseOrder = async (req: AuthRequest, res: Response, next
       let fullyReceived = true;
       for (const item of data.items) {
         if (item.qty_accepted > 0) {
-          await tx`
+          const productRes = await tx<any[]>`
             UPDATE products SET stock = stock + ${item.qty_accepted}
             WHERE id = ${item.product_id}
+            RETURNING stock
           `;
+          
+          if (productRes.length > 0) {
+            const newStock = productRes[0].stock;
+            const oldStock = newStock - item.qty_accepted;
+            await tx`
+              INSERT INTO product_stock_logs ${tx({
+                product_id: item.product_id,
+                shop_id: order.shop_id,
+                change_type: 'purchase_order',
+                qty_change: item.qty_accepted,
+                old_stock: oldStock,
+                new_stock: newStock,
+                reference_id: order.id,
+                created_by
+              })}
+            `;
+          }
         }
         
         // Find corresponding PO item
@@ -267,18 +333,29 @@ export const receivePurchaseOrder = async (req: AuthRequest, res: Response, next
         const poItem = poItems[0];
         
         if (poItem) {
-          const newReceived = poItem.qty_received + item.qty_received;
+          const newReceived = Number(poItem.qty_received) + Number(item.qty_accepted);
+          const newRejected = Number(poItem.qty_rejected || 0) + Number(item.qty_rejected);
           await tx`
-            UPDATE purchase_order_items SET qty_received = ${newReceived}
+            UPDATE purchase_order_items 
+            SET qty_received = ${newReceived},
+                qty_rejected = ${newRejected},
+                unit_price = ${item.purchase_price}
             WHERE id = ${poItem.id}
           `;
-          if (newReceived < poItem.qty_ordered) fullyReceived = false;
+          if ((newReceived + newRejected) < Number(poItem.qty_ordered)) fullyReceived = false;
         }
       }
 
-      // 3. Update PO Status
+      // 3. Update PO Status, Amount Paid, and Recalculate Total Amount
       await tx`
-        UPDATE purchase_orders SET status = ${fullyReceived ? 'completed' : 'partial'}
+        UPDATE purchase_orders 
+        SET status = ${fullyReceived ? 'completed' : 'partial'},
+            amount_paid = amount_paid + ${data.payment_amount},
+            total_amount = (
+              SELECT COALESCE(SUM((qty_ordered - qty_rejected) * unit_price), 0)
+              FROM purchase_order_items
+              WHERE order_id = ${order.id}
+            )
         WHERE id = ${order.id}
       `;
 
@@ -307,5 +384,46 @@ export const receivePurchaseOrder = async (req: AuthRequest, res: Response, next
     });
 
     res.status(200).json({ status: 'success', data: result });
+  } catch (error) { next(error); }
+};
+
+export const payPurchaseOrder = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const data = payPurchaseOrderSchema.parse(req.body);
+    const created_by = req.user?.id || null;
+
+    await sql.begin(async (tx) => {
+      // 1. Get PO
+      const orders = await tx`SELECT * FROM purchase_orders WHERE id = ${id}`;
+      const order = orders[0];
+      if (!order) throw new HttpError(404, 'Purchase order not found');
+
+      // 2. Update PO Amount Paid
+      await tx`
+        UPDATE purchase_orders 
+        SET amount_paid = amount_paid + ${data.payment_amount}
+        WHERE id = ${order.id}
+      `;
+
+      // 3. Update Supplier Ledger
+      await tx`
+        INSERT INTO supplier_payments ${tx({
+          shop_id: order.shop_id,
+          supplier_id: order.supplier_id,
+          amount_paid: data.payment_amount,
+          payment_mode: data.payment_mode,
+          reference_number: data.reference_number || null,
+          created_by,
+        })}
+      `;
+      
+      await tx`
+        UPDATE suppliers SET outstanding_balance = outstanding_balance - ${data.payment_amount}
+        WHERE id = ${order.supplier_id}
+      `;
+    });
+
+    res.status(200).json({ status: 'success', message: 'Payment recorded successfully' });
   } catch (error) { next(error); }
 };

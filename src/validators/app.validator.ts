@@ -105,6 +105,13 @@ export const createSupplierSchema = z.object({
   address: z.string().optional(),
 });
 
+export const updateSupplierSchema = z.object({
+  name: z.string().min(3).optional(),
+  phone: z.string().optional(),
+  gst_number: z.string().optional(),
+  address: z.string().optional(),
+});
+
 export const createPurchaseInvoiceSchema = z.object({
   shop_id: z.string().uuid(),
   supplier_id: z.string().uuid(),
@@ -156,4 +163,10 @@ export const receivePurchaseOrderSchema = z.object({
   })).min(1),
   payment_amount: z.coerce.number().nonnegative().default(0),
   payment_mode: z.string().default('cash'),
+});
+
+export const payPurchaseOrderSchema = z.object({
+  payment_amount: z.coerce.number().positive(),
+  payment_mode: z.string().default('cash'),
+  reference_number: z.string().optional(),
 });
