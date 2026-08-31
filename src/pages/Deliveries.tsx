@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Truck, Search, CheckCircle, Clock, Package } from 'lucide-react';
+import { Truck, Search, CheckCircle, Clock, Package, Eye } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { formatDate } from '../lib/utils';
+import Modal from '../components/Modal';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -12,6 +13,7 @@ export default function Deliveries() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('pending'); // 'pending', 'shipped', 'delivered'
+  const [viewOrder, setViewOrder] = useState<any>(null);
 
   useEffect(() => {
     if (currentShop) fetchDeliveries();
@@ -70,19 +72,19 @@ export default function Deliveries() {
             <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Delivery Orders</h2>
           </div>
           
-          <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-app)', padding: '4px', borderRadius: '8px' }}>
-            <button onClick={() => setStatusFilter('pending')} style={{ padding: '6px 16px', border: 'none', background: statusFilter === 'pending' ? '#f59e0b' : 'transparent', color: statusFilter === 'pending' ? 'white' : 'var(--text-secondary)', borderRadius: '6px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="custom-scrollbar" style={{ display: 'flex', gap: '8px', background: 'var(--bg-app)', padding: '4px', borderRadius: '8px', overflowX: 'auto', maxWidth: '100%' }}>
+            <button onClick={() => setStatusFilter('pending')} style={{ flexShrink: 0, padding: '6px 16px', border: 'none', background: statusFilter === 'pending' ? '#f59e0b' : 'transparent', color: statusFilter === 'pending' ? 'white' : 'var(--text-secondary)', borderRadius: '6px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Clock size={14} /> Pending
             </button>
-            <button onClick={() => setStatusFilter('shipped')} style={{ padding: '6px 16px', border: 'none', background: statusFilter === 'shipped' ? '#3b82f6' : 'transparent', color: statusFilter === 'shipped' ? 'white' : 'var(--text-secondary)', borderRadius: '6px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button onClick={() => setStatusFilter('shipped')} style={{ flexShrink: 0, padding: '6px 16px', border: 'none', background: statusFilter === 'shipped' ? '#3b82f6' : 'transparent', color: statusFilter === 'shipped' ? 'white' : 'var(--text-secondary)', borderRadius: '6px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Package size={14} /> Shipped
             </button>
-            <button onClick={() => setStatusFilter('delivered')} style={{ padding: '6px 16px', border: 'none', background: statusFilter === 'delivered' ? 'var(--success)' : 'transparent', color: statusFilter === 'delivered' ? 'white' : 'var(--text-secondary)', borderRadius: '6px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button onClick={() => setStatusFilter('delivered')} style={{ flexShrink: 0, padding: '6px 16px', border: 'none', background: statusFilter === 'delivered' ? 'var(--success)' : 'transparent', color: statusFilter === 'delivered' ? 'white' : 'var(--text-secondary)', borderRadius: '6px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <CheckCircle size={14} /> Delivered
             </button>
           </div>
 
-          <div style={{ position: 'relative', width: '300px' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-secondary)' }} />
             <input 
               type="text" 
@@ -149,33 +151,44 @@ export default function Deliveries() {
                     </span>
                   </td>
                   <td data-label="Actions" style={{ textAlign: 'right' }}>
-                    {order.delivery_status !== 'delivered' && (
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        {(order.delivery_status === 'pending' || !order.delivery_status) && (
-                           <button 
-                             onClick={() => handleUpdateStatus(order.id, 'shipped')}
-                             className="btn btn-secondary"
-                             style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                           >
-                             <Package size={14} /> Dispatch
-                           </button>
-                        )}
-                        {(order.delivery_status === 'shipped') && (
-                           <button 
-                             onClick={() => handleUpdateStatus(order.id, 'delivered')}
-                             className="btn btn-primary"
-                             style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                           >
-                             <CheckCircle size={14} /> Deliver
-                           </button>
-                        )}
-                      </div>
-                    )}
-                    {order.delivery_status === 'delivered' && (
-                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        Delivered on<br/>{order.delivered_at ? new Date(order.delivered_at).toLocaleDateString() : 'N/A'}
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <button 
+                        title="View Details"
+                        onClick={() => setViewOrder(order)} 
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '12px' }}
+                      >
+                        <Eye size={14} />
+                        <span className="mobile-hide">View</span>
+                      </button>
+
+                      {order.delivery_status !== 'delivered' ? (
+                        <>
+                          {(order.delivery_status === 'pending' || !order.delivery_status) && (
+                             <button 
+                               onClick={() => handleUpdateStatus(order.id, 'shipped')}
+                               className="btn btn-secondary"
+                               style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                             >
+                               <Package size={14} /> Dispatch
+                             </button>
+                          )}
+                          {(order.delivery_status === 'shipped') && (
+                             <button 
+                               onClick={() => handleUpdateStatus(order.id, 'delivered')}
+                               className="btn btn-primary"
+                               style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                             >
+                               <CheckCircle size={14} /> Deliver
+                             </button>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textAlign: 'right', marginLeft: '8px' }}>
+                          Delivered on<br/>{order.delivered_at ? new Date(order.delivered_at).toLocaleDateString() : 'N/A'}
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -183,6 +196,81 @@ export default function Deliveries() {
           </table>
         </div>
       </div>
+
+      {viewOrder && (
+        <Modal
+          title={`Delivery Details - ${viewOrder.id.split('-')[0].toUpperCase()}`}
+          onClose={() => setViewOrder(null)}
+          width="600px"
+        >
+          <div className="modal-body" style={{ padding: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px', background: 'var(--bg-hover)', padding: '16px', borderRadius: '8px' }}>
+              <div>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Customer</p>
+                <p style={{ fontWeight: 500, fontSize: '14px' }}>{viewOrder.customer?.name || 'Walk-in Customer'}</p>
+                {viewOrder.customer?.phone && <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{viewOrder.customer.phone}</p>}
+              </div>
+              <div>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Expected Delivery Date</p>
+                <p style={{ fontWeight: 500, fontSize: '14px' }}>{viewOrder.expected_delivery ? formatDate(viewOrder.expected_delivery) : 'Not specified'}</p>
+              </div>
+              <div>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Delivery Status</p>
+                <span style={{ 
+                  fontSize: '12px', padding: '4px 8px', borderRadius: '4px', textTransform: 'capitalize', display: 'inline-block',
+                  background: viewOrder.delivery_status === 'delivered' ? 'rgba(16, 185, 129, 0.1)' : viewOrder.delivery_status === 'shipped' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                  color: viewOrder.delivery_status === 'delivered' ? 'var(--success)' : viewOrder.delivery_status === 'shipped' ? '#3b82f6' : '#f59e0b' 
+                }}>
+                  {viewOrder.delivery_status || 'pending'}
+                </span>
+              </div>
+              <div>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Address</p>
+                <p style={{ fontWeight: 500, fontSize: '14px' }}>{viewOrder.delivery_address || 'No address provided'}</p>
+              </div>
+            </div>
+
+            {viewOrder.delivery_notes && (
+              <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent-blue)', borderRadius: '6px', fontSize: '14px' }}>
+                <span style={{ fontWeight: 600 }}>Delivery Notes: </span>{viewOrder.delivery_notes}
+              </div>
+            )}
+
+            <h4 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Items to Deliver</h4>
+            <div className="table-container" style={{ border: '1px solid var(--border-light)', margin: 0, padding: 0 }}>
+              <table style={{ margin: 0 }}>
+                <thead style={{ background: 'var(--bg-hover)' }}>
+                  <tr>
+                    <th>Product</th>
+                    <th style={{ textAlign: 'center' }}>Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewOrder.order_items?.map((item: any) => (
+                    <tr key={item.id}>
+                      <td data-label="Product" style={{ fontWeight: 500 }}>{item.product?.name || 'Unknown'}</td>
+                      <td data-label="Qty" style={{ textAlign: 'center' }}>{item.qty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end', fontSize: '14px' }}>
+              <div style={{ display: 'flex', width: '250px', justifyContent: 'space-between', fontWeight: 500, fontSize: '14px' }}>
+                <span>Bill Status:</span>
+                <span style={{ 
+                  textTransform: 'capitalize',
+                  color: viewOrder.status === 'paid' ? 'var(--success)' : viewOrder.status === 'partial' ? '#f59e0b' : 'var(--danger)' 
+                }}>
+                  {viewOrder.status}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

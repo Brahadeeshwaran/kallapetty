@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, IndianRupee } from 'lucide-react';
+import { Users, IndianRupee, Plus } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -61,12 +61,22 @@ export default function Customers() {
           <h1 className="page-title">Customers (Khata)</h1>
           <p className="page-subtitle">Manage customer ledger and collect pending dues</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancel' : 'Add Customer'}</button>
+        {!showForm && (
+          <button className="btn btn-primary" onClick={() => setShowForm(true)} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Plus size={18} />
+            <span className="desktop-only">Add Customer</span>
+          </button>
+        )}
       </header>
       
       {showForm && (
         <div className="card" style={{ marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>New Customer Details</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>New Customer Details</h3>
+            <button onClick={() => setShowForm(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
           <form onSubmit={handleAddCustomer} className="flex-row gap-4 items-end">
             <div style={{ flex: 1 }}><label>Name</label><input value={customerForm.name} onChange={e => setCustomerForm({...customerForm, name: e.target.value})} required /></div>
             <div style={{ flex: 1 }}><label>Phone Number</label><input value={customerForm.phone} onChange={e => setCustomerForm({...customerForm, phone: e.target.value})} /></div>
@@ -113,7 +123,7 @@ export default function Customers() {
         >
           <form onSubmit={handleReceivePayment} className="modal-body">
               <div className="flex-row gap-4">
-                <div style={{ flex: 1 }}><label>Amount Received (₹)</label><input type="number" step="0.01" value={paymentModal.amount} onChange={e => setPaymentModal({...paymentModal, amount: e.target.value})} required /></div>
+                <div style={{ flex: 1 }}><label>Amount Received (₹)</label><input type="number" step="0.01" autoComplete="off" name="pay_amt_cust" value={paymentModal.amount} onChange={e => setPaymentModal({...paymentModal, amount: e.target.value})} required /></div>
                 <div style={{ flex: 1 }}>
                   <label>Received Via</label>
                   <Select

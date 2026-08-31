@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Briefcase, IndianRupee } from 'lucide-react';
+import { Briefcase, IndianRupee, Edit, Plus } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -13,8 +13,7 @@ export default function Suppliers() {
   const [loading, setLoading] = useState(true);
 
   // Forms
-  const [showForm, setShowForm] = useState(false);
-  const [supplierForm, setSupplierForm] = useState({ name: '', phone: '', gst_number: '', address: '' });
+  const [formModal, setFormModal] = useState<any>(null); // null when closed, object for Add/Edit
   
   const [paymentModal, setPaymentModal] = useState<any>(null);
 
@@ -31,24 +30,48 @@ export default function Suppliers() {
     finally { setLoading(false); }
   };
 
-  const handleAddSupplier = async (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/suppliers', supplierForm);
-      toast.success('Supplier added!');
-      setShowForm(false);
-      setSupplierForm({ name: '', phone: '', gst_number: '', address: '' });
+      if (formModal.id) {
+        // Edit mode
+        await api.put(`/suppliers/${formModal.id}`, {
+          name: formModal.name,
+          phone: formModal.phone,
+          gst_number: formModal.gst_number,
+          address: formModal.address
+        });
+        toast.success('Supplier updated!');
+      } else {
+        // Add mode
+        await api.post('/suppliers', {
+          name: formModal.name,
+          phone: formModal.phone,
+          gst_number: formModal.gst_number,
+          address: formModal.address
+        });
+        toast.success('Supplier added!');
+      }
+      setFormModal(null);
       fetchData();
-    } catch (error: any) { toast.error(error.response?.data?.message || 'Failed to add'); }
+    } catch (error: any) { 
+      toast.error(error.response?.data?.message || 'Failed to save supplier'); 
+    }
   };
 
   const handleReceivePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app we'd post to a /suppliers/payment route. But we can just use the standard payment route if generalized, or create a specific one.
-    // Wait, we didn't add a POST /suppliers/payments in the backend yet. We added createSupplierPaymentSchema but not the route.
-    // I should probably just show a toast for now since this is the Suppliers page and the main requirement is Purchases.
-    // Or I can add the route to backend quickly. Let's just mock the UI for now, or use a general endpoint.
-    toast.error('Payment tracking will be implemented in the next iteration.');
+    try {
+      await api.post(`/suppliers/${paymentModal.supplier_id}/payments?shop_id=${currentShop.id}`, {
+        amount_paid: Number(paymentModal.amount),
+        payment_mode: paymentModal.received_via,
+      });
+      toast.success('Payment recorded successfully!');
+      setPaymentModal(null);
+      fetchData(); // refresh supplier balances
+    } catch (error) {
+      toast.error('Failed to record payment');
+    }
   };
 
   return (
@@ -58,21 +81,11 @@ export default function Suppliers() {
           <h1 className="page-title">Suppliers</h1>
           <p className="page-subtitle">Manage your vendors and their ledger balances</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancel' : 'Add Supplier'}</button>
+        <button className="btn btn-primary" onClick={() => setFormModal({ name: '', phone: '', gst_number: '', address: '' })} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Plus size={18} />
+          <span className="desktop-only">Add Supplier</span>
+        </button>
       </header>
-      
-      {showForm && (
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>New Supplier Details</h3>
-          <form onSubmit={handleAddSupplier} className="flex-row gap-4 items-end flex-wrap">
-            <div style={{ flex: '1 1 200px' }}><label>Name</label><input value={supplierForm.name} onChange={e => setSupplierForm({...supplierForm, name: e.target.value})} required /></div>
-            <div style={{ flex: '1 1 200px' }}><label>Phone</label><input value={supplierForm.phone} onChange={e => setSupplierForm({...supplierForm, phone: e.target.value})} /></div>
-            <div style={{ flex: '1 1 200px' }}><label>GST Number</label><input value={supplierForm.gst_number} onChange={e => setSupplierForm({...supplierForm, gst_number: e.target.value})} /></div>
-            <div style={{ flex: '1 1 200px' }}><label>Address</label><input value={supplierForm.address} onChange={e => setSupplierForm({...supplierForm, address: e.target.value})} /></div>
-            <button type="submit" className="btn btn-primary" style={{ height: '42px', flex: '0 0 auto' }}>Save</button>
-          </form>
-        </div>
-      )}
 
       <div className="table-container">
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -94,7 +107,8 @@ export default function Suppliers() {
                 <td data-label="Outstanding Balance" style={{ textAlign: 'right', fontWeight: 600, color: s.outstanding_balance > 0 ? 'var(--danger)' : 'var(--success)' }}>
                   ₹{Number(s.outstanding_balance || 0).toFixed(2)}
                 </td>
-                <td data-label="Actions" style={{ textAlign: 'right' }}>
+                <td data-label="Actions" style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <button onClick={() => setFormModal(s)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px' }} title="Edit Supplier"><Edit size={16} color="var(--text-secondary)"/></button>
                   <button onClick={() => setPaymentModal({ supplier_id: s.id, amount: s.outstanding_balance || '', received_via: 'Bank' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <IndianRupee size={12} /> Make Payment
                   </button>
@@ -113,19 +127,37 @@ export default function Suppliers() {
         >
           <form onSubmit={handleReceivePayment} className="modal-body">
               <div className="flex-row gap-4">
-                <div style={{ flex: 1 }}><label>Amount Paid (₹)</label><input type="number" step="0.01" value={paymentModal.amount} onChange={e => setPaymentModal({...paymentModal, amount: e.target.value})} required /></div>
+                <div style={{ flex: 1 }}><label>Amount Paid (₹)</label><input type="number" step="0.01" autoComplete="off" name="pay_amt_sup" value={paymentModal.amount} onChange={e => setPaymentModal({...paymentModal, amount: e.target.value})} required /></div>
                 <div style={{ flex: 1 }}>
                   <label>Paid Via</label>
                   <Select
                     options={[{value: 'Cash', label: 'Cash'}, {value: 'UPI', label: 'UPI'}, {value: 'Bank', label: 'Bank Transfer'}]}
                     value={paymentModal.received_via ? {value: paymentModal.received_via, label: paymentModal.received_via} : null}
                     onChange={(opt: any) => setPaymentModal({...paymentModal, received_via: opt?.value})}
-                    styles={selectStyles}
+                    styles={{ ...selectStyles, menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
                   />
                 </div>
               </div>
               <button type="submit" className="btn btn-primary" style={{ padding: '14px', marginTop: '16px', width: '100%' }}>Confirm Payment</button>
             </form>
+        </Modal>
+      )}
+
+      {formModal && (
+        <Modal 
+          title={formModal.id ? "Edit Supplier" : "Add Supplier"}
+          onClose={() => setFormModal(null)}
+          width="480px"
+        >
+          <form onSubmit={handleFormSubmit} className="modal-body">
+              <div style={{ marginBottom: '16px' }}><label>Name</label><input value={formModal.name} onChange={e => setFormModal({...formModal, name: e.target.value})} required /></div>
+              <div style={{ marginBottom: '16px' }}><label>Phone</label><input value={formModal.phone || ''} onChange={e => setFormModal({...formModal, phone: e.target.value})} /></div>
+              <div style={{ marginBottom: '16px' }}><label>GST Number</label><input value={formModal.gst_number || ''} onChange={e => setFormModal({...formModal, gst_number: e.target.value})} /></div>
+              <div style={{ marginBottom: '16px' }}><label>Address</label><input value={formModal.address || ''} onChange={e => setFormModal({...formModal, address: e.target.value})} /></div>
+              <button type="submit" className="btn btn-primary" style={{ padding: '14px', marginTop: '16px', width: '100%' }}>{formModal.id ? "Save Changes" : "Create Supplier"}</button>
+          </form>
         </Modal>
       )}
     </div>

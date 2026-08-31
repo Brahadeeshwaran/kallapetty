@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, TrendingDown, IndianRupee } from 'lucide-react';
+import { BookOpen, TrendingDown, IndianRupee, Plus } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -83,7 +83,12 @@ export default function DayBook() {
               />
             </div>
           )}
-          <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancel' : 'Record Expense'}</button>
+          {!showForm && (
+            <button className="btn btn-primary" onClick={() => setShowForm(true)} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Plus size={18} />
+              <span className="desktop-only">Record Expense</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -113,7 +118,12 @@ export default function DayBook() {
       
       {showForm && (
         <div className="card" style={{ marginBottom: '24px', borderLeft: '4px solid var(--danger)' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>Record Petty Cash Expense</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>Record Petty Cash Expense</h3>
+            <button onClick={() => setShowForm(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
           <form onSubmit={handleAddExpense} className="flex-row gap-4 items-end">
             {shops.length > 1 && (
               <div style={{ flex: 1 }}>

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Search, ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, X } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import Select from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 import { selectStyles } from '../lib/utils';
 import Modal from '../components/Modal';
 
@@ -29,6 +30,9 @@ export default function POS() {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [payLater, setPayLater] = useState(false);
+  const [printCopyType, setPrintCopyType] = useState('Original');
+  const [customPrintCopy, setCustomPrintCopy] = useState('');
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   useEffect(() => {
     if (!currentShop) return;
@@ -121,13 +125,14 @@ export default function POS() {
     if (!currentShop) return toast.error('No active shop context');
     
     const paidAmt = parseFloat(amountPaid) || 0;
+    if (cart.some(item => !item.qty || Number(item.qty) <= 0)) return toast.error('Quantity must be at least 1 for all items');
+
     if (paidAmt < finalTotal && !selectedCustomer) {
-      setRequireCustomerModal(true);
+      toast.error('Partial payment requires you to select a Customer from the dropdown.');
       return;
     }
     if (orderType === 'delivery' && !selectedCustomer) {
-      toast.error('Delivery orders require a registered customer.');
-      setRequireCustomerModal(true);
+      toast.error('Delivery orders require a Customer.');
       return;
     }
     
@@ -160,7 +165,12 @@ export default function POS() {
       setLastOrder(res.data.data);
       setCart([]); setAmountPaid(''); setDiscount(''); setPayLater(false);
       setSelectedCustomer(''); setOrderType('pos'); setExpectedDelivery(''); setDeliveryAddress(''); setDeliveryNotes('');
-    } catch (error: any) { toast.error(error.response?.data?.message || 'Checkout failed'); } 
+      setPrintCopyType('Original'); setCustomPrintCopy('');
+      setIsMobileCartOpen(false);
+    } catch (error: any) { 
+      console.error("CHECKOUT_ERROR:", error);
+      toast.error(error.response?.data?.message || `Checkout failed: ${error.message || error}`); 
+    }
     finally { setLoading(false); }
   };
 
@@ -196,26 +206,18 @@ export default function POS() {
       <div className="pos-layout">
         <div className="pos-left">
           <div className="card flex-row gap-4">
-            <form onSubmit={handleBarcodeSubmit} style={{ flex: 1, display: 'flex', gap: '16px', position: 'relative' }}>
+            <form className="pos-search-form" onSubmit={handleBarcodeSubmit} style={{ flex: 1, display: 'flex', gap: '16px', position: 'relative' }}>
               <div style={{ position: 'relative', flex: 1 }}>
                 <Search size={18} style={{ position: 'absolute', left: '16px', top: '12px', color: 'var(--text-secondary)' }} />
                 <input type="text" value={barcode} onChange={e => setBarcode(e.target.value)} placeholder="Search product or scan barcode..." autoFocus style={{ paddingLeft: '44px' }} />
               </div>
               <button type="submit" className="btn btn-secondary">Scan</button>
             </form>
-            <div style={{ width: '200px' }}>
-              <Select
-                options={[{ value: '', label: 'Walk-in Customer' }, ...customers.map(c => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))]}
-                value={selectedCustomer ? { value: selectedCustomer, label: customers.find(c => c.id === selectedCustomer)?.name || 'Walk-in Customer' } : { value: '', label: 'Walk-in Customer' }}
-                onChange={(opt: any) => setSelectedCustomer(opt?.value || '')}
-                styles={selectStyles}
-              />
-            </div>
           </div>
           
           <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '20px' }}>
              <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Available Products</h3>
-             <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px', alignContent: 'start' }} className="custom-scrollbar">
+             <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', alignContent: 'start', paddingBottom: '16px' }} className="custom-scrollbar pos-products-grid">
                {products.filter(p => p.shop_id === currentShop.id && (p.name.toLowerCase().includes(barcode.toLowerCase()) || (p.barcode && p.barcode.includes(barcode)))).map(p => (
                  <div key={p.id} onClick={() => addToCart(p)} className="product-card" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                    <div style={{ fontWeight: 500, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={p.name}>{p.name}</div>
@@ -233,8 +235,13 @@ export default function POS() {
           </div>
         </div>
 
-        <div className="pos-right">
-          <div style={{ padding: '20px', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={`pos-right ${isMobileCartOpen ? 'mobile-open' : ''}`}>
+          <div className="mobile-cart-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}><ShoppingCart size={18}/> Cart ({cart.length})</h2>
+            <button onClick={() => setIsMobileCartOpen(false)} style={{ background: 'var(--bg-hover)', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'flex' }}><X size={20}/></button>
+          </div>
+          
+          <div className="desktop-cart-header" style={{ padding: '20px', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}><ShoppingCart size={16}/> Cart</h2>
             <span style={{ fontSize: '12px', background: 'var(--bg-hover)', padding: '4px 8px', borderRadius: '4px' }}>{cart.length} Items</span>
           </div>
@@ -257,8 +264,12 @@ export default function POS() {
                         type="number" 
                         value={item.qty} 
                         onChange={(e) => {
+                          if (e.target.value === '') {
+                            setCart(c => c.map((p, i) => i === idx ? {...p, qty: ''} : p));
+                            return;
+                          }
                           const val = parseInt(e.target.value, 10);
-                          if (isNaN(val) || val < 1) return;
+                          if (isNaN(val) || val < 0) return;
                           if (!item.is_service && val > item.stock) {
                             toast.error(`Only ${item.stock} left in stock!`);
                             return;
@@ -270,8 +281,8 @@ export default function POS() {
                       />
                       <button onClick={() => setCart(c => c.map((p, i) => {
                         if (i === idx) {
-                          if (!p.is_service && p.qty + 1 > p.stock) { toast.error('Max stock reached'); return p; }
-                          return {...p, qty: p.qty + 1};
+                          if (!p.is_service && Number(p.qty || 0) + 1 > p.stock) { toast.error('Max stock reached'); return p; }
+                          return {...p, qty: Number(p.qty || 0) + 1};
                         }
                         return p;
                       }))} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}><Plus size={14} color="var(--text-secondary)"/></button>
@@ -288,8 +299,22 @@ export default function POS() {
               <span style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-secondary)' }}>Total</span>
               <span style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>₹{total.toFixed(2)}</span>
             </div>
-            <button className="btn btn-primary" disabled={cart.length === 0} onClick={() => setCheckoutModal(true)} style={{ padding: '14px', width: '100%', fontSize: '15px' }}>Checkout</button>
+            <button className="btn btn-primary" disabled={cart.length === 0} onClick={() => {setCheckoutModal(true); setIsMobileCartOpen(false);}} style={{ padding: '14px', width: '100%', fontSize: '15px' }}>Checkout</button>
           </div>
+        </div>
+        
+        {/* Mobile Floating Cart Toggle */}
+        <div className="mobile-cart-toggle" onClick={() => setIsMobileCartOpen(true)}>
+           <div className="flex-row items-center gap-3">
+             <div style={{ position: 'relative' }}>
+               <ShoppingCart size={22} color="var(--bg-app)" />
+               {cart.length > 0 && <span style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--danger)', color: '#fff', fontSize: '10px', fontWeight: 'bold', width: '18px', height: '18px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cart.length}</span>}
+             </div>
+             <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--bg-app)' }}>₹{total.toFixed(2)}</span>
+           </div>
+           <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--bg-app)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+             View Cart
+           </div>
         </div>
       </div>
 
@@ -302,7 +327,29 @@ export default function POS() {
             {lastOrder ? (
               <div className="modal-body" style={{ padding: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px', textAlign: 'center', color: 'var(--success)' }}>Bill Created Successfully!</h3>
-                <iframe id="invoice-frame" src={`/print/${lastOrder.id}?preview=true`} style={{ width: '100%', height: '450px', border: '1px solid var(--border-light)', borderRadius: '8px', background: '#fff' }} title="Invoice Preview" />
+                <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <label style={{ margin: 0, fontWeight: 500, whiteSpace: 'nowrap', fontSize: '14px' }}>Copy Type:</label>
+                  <select 
+                    value={printCopyType} 
+                    onChange={e => setPrintCopyType(e.target.value)}
+                    style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '14px' }}
+                  >
+                    <option value="Original">Original</option>
+                    <option value="Duplicate">Duplicate</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Custom">Custom...</option>
+                  </select>
+                  {printCopyType === 'Custom' && (
+                    <input 
+                      type="text" 
+                      placeholder="Enter label" 
+                      value={customPrintCopy}
+                      onChange={e => setCustomPrintCopy(e.target.value)}
+                      style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border-light)', fontSize: '14px' }}
+                    />
+                  )}
+                </div>
+                <iframe id="invoice-frame" src={`/print/${lastOrder.id}?preview=true&label=${encodeURIComponent(printCopyType === 'Custom' ? customPrintCopy : printCopyType)}`} style={{ width: '100%', height: '450px', border: '1px solid var(--border-light)', borderRadius: '8px', background: '#fff' }} title="Invoice Preview" />
                 <div className="flex-row gap-4" style={{ marginTop: '16px' }}>
                   <button onClick={() => {
                     const iframe = document.getElementById('invoice-frame') as HTMLIFrameElement;
@@ -317,11 +364,39 @@ export default function POS() {
               </div>
             ) : (
               <form onSubmit={handleCheckout} className="modal-body">
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: 'var(--bg-app)', padding: '4px', borderRadius: '8px' }}>
-                  <button type="button" onClick={() => setOrderType('pos')} style={{ flex: 1, padding: '8px', border: 'none', background: orderType === 'pos' ? 'var(--primary)' : 'transparent', color: orderType === 'pos' ? 'white' : 'var(--text-secondary)', borderRadius: '6px', fontWeight: 500, cursor: 'pointer' }}>Direct / Walk-in</button>
-                  <button type="button" onClick={() => setOrderType('delivery')} style={{ flex: 1, padding: '8px', border: 'none', background: orderType === 'delivery' ? 'var(--primary)' : 'transparent', color: orderType === 'delivery' ? 'white' : 'var(--text-secondary)', borderRadius: '6px', fontWeight: 500, cursor: 'pointer' }}>For Delivery</button>
+                <div style={{ display: 'flex', background: 'var(--bg-hover)', borderRadius: '8px', padding: '4px', marginBottom: '16px' }}>
+                  <button type="button" onClick={() => setOrderType('pos')} className={`btn ${orderType === 'pos' ? 'btn-primary' : ''}`} style={{ flex: 1, border: 'none', background: orderType === 'pos' ? '' : 'transparent', color: orderType === 'pos' ? '#fff' : 'var(--text-secondary)' }}>Direct / Walk-in</button>
+                  <button type="button" onClick={() => setOrderType('delivery')} className={`btn ${orderType === 'delivery' ? 'btn-primary' : ''}`} style={{ flex: 1, border: 'none', background: orderType === 'delivery' ? '' : 'transparent', color: orderType === 'delivery' ? '#fff' : 'var(--text-secondary)' }}>For Delivery</button>
                 </div>
 
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>Bill To (Customer)</label>
+                  <CreatableSelect
+                    options={[{ value: '', label: 'Walk-in Customer' }, ...customers.map(c => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))]}
+                    value={selectedCustomer ? { value: selectedCustomer, label: customers.find(c => c.id === selectedCustomer)?.name || 'Walk-in Customer' } : { value: '', label: 'Walk-in Customer' }}
+                    onChange={(opt: any) => setSelectedCustomer(opt?.value || '')}
+                    onCreateOption={async (inputValue) => {
+                      try {
+                        setLoading(true);
+                        const res = await api.post('/customers', { name: inputValue, phone: '' });
+                        setCustomers(prev => [...prev, res.data.data]);
+                        setSelectedCustomer(res.data.data.id);
+                        toast.success('Customer created!');
+                      } catch (err: any) {
+                        toast.error(err.response?.data?.message || 'Failed to create customer');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    placeholder="Search or type to create new..."
+                    formatCreateLabel={(inputValue) => `Add "${inputValue}" as new customer`}
+                    styles={{ ...selectStyles, menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
+                    isDisabled={loading}
+                  />
+                </div>
+                
                 <div style={{ background: 'var(--bg-app)', border: '1px solid var(--border-light)', padding: '20px', borderRadius: '12px', marginBottom: '8px' }}>
                   <div className="flex-row space-between" style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
                   {totalTax > 0 && <div className="flex-row space-between" style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '12px' }}><span>Tax</span><span>+ ₹{totalTax.toFixed(2)}</span></div>}
@@ -338,7 +413,7 @@ export default function POS() {
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                   <div><label>Discount Amount (₹)</label><input type="number" step="0.01" value={discount} onChange={e => setDiscount(e.target.value)} /></div>
-                  <div><label>Amount Paid Today (₹)</label><input type="number" step="0.01" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} readOnly={!payLater} style={{ opacity: payLater ? 1 : 0.7 }} required /></div>
+                  <div><label>Amount Paid Today (₹)</label><input type="number" step="0.01" autoComplete="off" name="pos_pay_amt" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} readOnly={!payLater} style={{ opacity: payLater ? 1 : 0.7 }} required /></div>
                 </div>
 
                 {orderType === 'delivery' && (

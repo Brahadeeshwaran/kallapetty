@@ -72,19 +72,20 @@ export function Sidebar({ isOpen, closeMenu }: { isOpen?: boolean, closeMenu?: (
 
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
-      <div>
-        <div style={{ marginBottom: '40px', padding: '0 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>KallaPetty</h2>
+      <div style={{ marginBottom: '24px', padding: '0 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+        <div>
+          <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>KallaPetty</h2>
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'capitalize' }}>
             <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success)', marginRight: '6px', verticalAlign: 'middle' }}></span>
             {isSuperAdmin ? 'Super Admin' : isOwner ? 'Business Owner' : (currentShop && user?.shop_roles?.[currentShop.id]) ? user.shop_roles[currentShop.id] : 'Staff'}
           </p>
-          </div>
-          <button className="mobile-only" onClick={closeMenu} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-            <X size={24} />
-          </button>
         </div>
+        <button className="mobile-only" onClick={closeMenu} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+          <X size={24} />
+        </button>
+      </div>
+      
+      <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column' }} className="custom-scrollbar">
         
         {/* Shop Switcher */}
         {shops.length > 1 && !isSuperAdmin && (
@@ -117,7 +118,7 @@ export function Sidebar({ isOpen, closeMenu }: { isOpen?: boolean, closeMenu?: (
         </nav>
       </div>
       
-      <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border-light)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border-light)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
         <button onClick={toggleTheme} className="nav-link" style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'var(--text-secondary)' }} onMouseOver={e => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={e => e.currentTarget.style.color = 'var(--text-secondary)'}>
           {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
