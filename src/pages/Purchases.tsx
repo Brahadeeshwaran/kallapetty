@@ -75,15 +75,36 @@ export default function Purchases() {
     } catch (error) { }
   };
 
+  const [supplierPrices, setSupplierPrices] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!poForm.supplier_id) {
+      setSupplierPrices({});
+      return;
+    }
+    api.get(`/suppliers/${poForm.supplier_id}/prices`).then(res => {
+      const prices = res.data.data || {};
+      setSupplierPrices(prices);
+      setPoItems(prev => prev.map(item => {
+        if (prices[item.product_id] !== undefined) {
+          return { ...item, unit_price: prices[item.product_id], has_last_price: true };
+        }
+        return item;
+      }));
+    }).catch(() => {});
+  }, [poForm.supplier_id]);
+
   // --- PO Creation Logic ---
   const handleAddPOItem = (product: any) => {
     if (poItems.find(i => i.product_id === product.id)) return toast.error('Product already added');
+    const unitPrice = supplierPrices[product.id] !== undefined ? supplierPrices[product.id] : Number(product.price);
     setPoItems([...poItems, {
       product_id: product.id,
       name: product.name,
       qty_ordered: 1,
-      unit_price: Number(product.price),
-      selling_price: Number(product.price)
+      unit_price: unitPrice,
+      selling_price: Number(product.price),
+      has_last_price: supplierPrices[product.id] !== undefined
     }]);
     setSearchQuery('');
   };
@@ -313,6 +334,11 @@ export default function Purchases() {
                           <td data-label="Order Qty"><input type="number" min="1" value={item.qty_ordered} onChange={e => updatePOItem(idx, 'qty_ordered', e.target.value === '' ? '' : Number(e.target.value))} style={{ padding: '6px' }} /></td>
                           <td data-label="Unit Price (₹)">
                             <input type="number" step="0.01" value={item.unit_price} onChange={e => updatePOItem(idx, 'unit_price', e.target.value === '' ? '' : Number(e.target.value))} style={{ padding: '6px' }} />
+                            {supplierPrices[item.product_id] !== undefined && (
+                              <div style={{ fontSize: '11px', color: 'var(--success)', marginTop: '2px', fontWeight: 500 }}>
+                                Last Paid: ₹{supplierPrices[item.product_id]}
+                              </div>
+                            )}
                             {item.selling_price !== undefined && Number(item.unit_price) >= Number(item.selling_price) && (
                               <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--danger)', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
                                 <span style={{ fontWeight: 600 }}>⚠️ Loss Alert (MRP: ₹{item.selling_price})</span>

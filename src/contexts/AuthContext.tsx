@@ -64,12 +64,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 1. Initial Load: Check if we have a valid cookie session
     const initAuth = async () => {
       try {
-        const res = await api.post('/auth/refresh');
+        const storedRefreshToken = localStorage.getItem('kallapetty_refresh_token');
+        const res = await api.post('/auth/refresh', { refreshToken: storedRefreshToken });
+        
+        if (res.data.refreshToken) {
+          localStorage.setItem('kallapetty_refresh_token', res.data.refreshToken);
+        }
+
         setAccessToken(res.data.token);
         setUser(res.data.user);
         await loadShops();
       } catch (error) {
         // No valid cookie exists, user must log in manually
+        localStorage.removeItem('kallapetty_refresh_token');
       } finally {
         setIsLoading(false); // Stop loading screen
       }
@@ -101,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch(e) {
       console.error('Logout failed', e);
     }
+    localStorage.removeItem('kallapetty_refresh_token');
     setAccessToken('');
     setUser(null);
     setShops([]);

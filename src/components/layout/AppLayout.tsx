@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Sidebar } from './Sidebar';
+import { InstallPWA } from '../InstallPWA';
 import { Menu, Maximize, Minimize } from 'lucide-react';
 
 export function AppLayout() {
   const { isAuthenticated, isLoading, currentShop, user } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   
   // Swipe gesture states
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -102,14 +104,21 @@ export function AppLayout() {
         </div>
       </div>
 
-      <Sidebar isOpen={isMobileMenuOpen} closeMenu={() => setIsMobileMenuOpen(false)} />
+      <Sidebar 
+        isOpen={isMobileMenuOpen} 
+        closeMenu={() => setIsMobileMenuOpen(false)} 
+        isCollapsed={isCollapsed}
+        toggleCollapse={() => setIsCollapsed(!isCollapsed)}
+      />
       
       {/* Overlay for mobile sidebar */}
       {isMobileMenuOpen && <div className="sidebar-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
 
-      <main className="main-content">
+      <main className={`main-content ${isCollapsed ? 'collapsed' : ''}`}>
         <Outlet />
       </main>
+
+      <InstallPWA />
     </div>
   );
 }
