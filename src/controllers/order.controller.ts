@@ -34,7 +34,7 @@ export const createOrder = async (req: AuthRequest, res: Response, next: NextFun
     const productById = new Map(products.map(product => [product.id, product]));
     const calculatedItems = data.items.map(item => {
       const product = productById.get(item.product_id)!;
-      const price = Number(product.price);
+      const price = item.price !== undefined && !isNaN(Number(item.price)) ? Number(item.price) : Number(product.price);
       const taxAmount = price * item.qty * (Number(product.tax_rate || 0) / 100);
       return { ...item, price, tax_amount: taxAmount, product };
     });
@@ -82,6 +82,15 @@ export const createOrder = async (req: AuthRequest, res: Response, next: NextFun
             created_by,
           })}
         `;
+
+        if (data.customer_id) {
+          await tx`
+            INSERT INTO customer_product_prices (customer_id, product_id, custom_price, updated_at)
+            VALUES (${data.customer_id}, ${item.product_id}, ${item.price}, CURRENT_TIMESTAMP)
+            ON CONFLICT (customer_id, product_id)
+            DO UPDATE SET custom_price = ${item.price}, updated_at = CURRENT_TIMESTAMP
+          `;
+        }
 
         if (!item.product.is_service) {
           const result = await tx<any[]>`

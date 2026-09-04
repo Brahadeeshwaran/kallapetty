@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createCustomer, getCustomers } from '../controllers/customer.controller';
+import { createCustomer, getCustomers, getCustomerPrices } from '../controllers/customer.controller';
 import { protect } from '../middlewares/authMiddleware';
 
 const router = Router();
@@ -12,6 +12,8 @@ router.use(protect);
  *   name: Customers
  *   description: Customer Management
  */
+
+router.get('/:id/prices', getCustomerPrices);
 
 /**
  * @swagger

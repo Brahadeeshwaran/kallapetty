@@ -86,7 +86,27 @@ app.listen(port, async () => {
     logger_1.logger.info(`[server]: Server is running at port ${port}`);
     try {
         await (0, db_1.default) `SELECT 1`;
-        logger_1.logger.info('[database]: Connected to PostgreSQL successfully!');
+        await (0, db_1.default) `
+      CREATE TABLE IF NOT EXISTS customer_product_prices (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+        product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        custom_price NUMERIC(10, 2) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT unique_customer_product UNIQUE (customer_id, product_id)
+      );
+    `;
+        await (0, db_1.default) `
+      CREATE TABLE IF NOT EXISTS supplier_product_prices (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+        product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        last_purchase_price NUMERIC(10, 2) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT unique_supplier_product UNIQUE (supplier_id, product_id)
+      );
+    `;
+        logger_1.logger.info('[database]: Connected to PostgreSQL & custom pricing tables verified!');
     }
     catch (error) {
         logger_1.logger.error('[database]: Failed to connect to PostgreSQL:', error);

@@ -28,6 +28,13 @@ export const createPurchaseInvoice = async (req: AuthRequest, res: Response, nex
 
       for (const item of data.items) {
         await tx`
+          INSERT INTO supplier_product_prices (supplier_id, product_id, last_purchase_price, updated_at)
+          VALUES (${data.supplier_id}, ${item.product_id}, ${item.purchase_price}, CURRENT_TIMESTAMP)
+          ON CONFLICT (supplier_id, product_id)
+          DO UPDATE SET last_purchase_price = ${item.purchase_price}, updated_at = CURRENT_TIMESTAMP
+        `;
+
+        await tx`
           INSERT INTO purchase_invoice_items ${tx({
             invoice_id: invoice.id,
             product_id: item.product_id,
@@ -145,6 +152,13 @@ export const createPurchaseOrder = async (req: AuthRequest, res: Response, next:
       const po = orders[0];
 
       for (const item of data.items) {
+        await tx`
+          INSERT INTO supplier_product_prices (supplier_id, product_id, last_purchase_price, updated_at)
+          VALUES (${data.supplier_id}, ${item.product_id}, ${item.unit_price}, CURRENT_TIMESTAMP)
+          ON CONFLICT (supplier_id, product_id)
+          DO UPDATE SET last_purchase_price = ${item.unit_price}, updated_at = CURRENT_TIMESTAMP
+        `;
+
         await tx`
           INSERT INTO purchase_order_items ${tx({
             order_id: po.id,
@@ -283,6 +297,13 @@ export const receivePurchaseOrder = async (req: AuthRequest, res: Response, next
       
       const receivedItems = data.items.filter(item => item.qty_received > 0);
       for (const item of receivedItems) {
+        await tx`
+          INSERT INTO supplier_product_prices (supplier_id, product_id, last_purchase_price, updated_at)
+          VALUES (${order.supplier_id}, ${item.product_id}, ${item.purchase_price}, CURRENT_TIMESTAMP)
+          ON CONFLICT (supplier_id, product_id)
+          DO UPDATE SET last_purchase_price = ${item.purchase_price}, updated_at = CURRENT_TIMESTAMP
+        `;
+
         await tx`
           INSERT INTO purchase_invoice_items ${tx({
             invoice_id: invoice.id,

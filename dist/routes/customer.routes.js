@@ -11,6 +11,7 @@ router.use(authMiddleware_1.protect);
  *   name: Customers
  *   description: Customer Management
  */
+router.get('/:id/prices', customer_controller_1.getCustomerPrices);
 /**
  * @swagger
  * /api/customers:

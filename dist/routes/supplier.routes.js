@@ -7,6 +7,7 @@ const router = (0, express_1.Router)();
 router.use(authMiddleware_1.protect);
 router.post('/', supplier_controller_1.createSupplier);
 router.get('/', supplier_controller_1.getSuppliers);
+router.get('/:id/prices', supplier_controller_1.getSupplierPrices);
 router.put('/:id', supplier_controller_1.updateSupplier);
 router.post('/:id/payments', supplier_controller_1.addSupplierPayment);
 exports.default = router;

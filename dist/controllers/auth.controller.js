@@ -57,11 +57,13 @@ const login = async (req, res, next) => {
             httpOnly: true, // Prevents JavaScript access (XSS protection)
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
+            path: '/',
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 Days
         });
         res.json({
             status: 'success',
             token: accessToken, // Send Access token in JSON body
+            refreshToken: refreshToken, // Send refresh token as fallback
             user: payload,
         });
     }
@@ -72,7 +74,7 @@ const login = async (req, res, next) => {
 exports.login = login;
 const refresh = async (req, res, next) => {
     try {
-        const { refreshToken } = req.cookies;
+        const refreshToken = req.cookies.refreshToken || req.body.refreshToken || req.headers['x-refresh-token'];
         if (!refreshToken) {
             return res.status(401).json({ status: 'error', message: 'No refresh token provided' });
         }
@@ -98,7 +100,7 @@ const refresh = async (req, res, next) => {
             if (!userCheck.is_superadmin) {
                 const businessRes = await (0, db_1.default) `SELECT * FROM businesses WHERE id = ${userCheck.business_id}`;
                 const business = businessRes[0];
-                if (!business || !business.is_active || (business.subscription_end_date && business.subscription_end_date < new Date())) {
+                if (!business || !business.is_active || (business.subscription_end_date && new Date(business.subscription_end_date) < new Date())) {
                     return res.status(403).json({ status: 'error', message: 'Business subscription is inactive or expired' });
                 }
             }
@@ -120,9 +122,17 @@ const refresh = async (req, res, next) => {
                 is_business_owner: userCheck.is_business_owner,
             };
             const newAccessToken = (0, jwt_1.generateToken)(payload);
+            res.cookie('refreshToken', refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 7 * 24 * 60 * 60 * 1000,
+            });
             res.json({
                 status: 'success',
                 token: newAccessToken,
+                refreshToken: refreshToken,
                 user: payload,
             });
         }
