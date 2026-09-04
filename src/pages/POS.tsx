@@ -33,6 +33,8 @@ export default function POS() {
   const [customPrintCopy, setCustomPrintCopy] = useState('');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
+  const [customerPrices, setCustomerPrices] = useState<Record<string, number>>({});
+
   useEffect(() => {
     if (!currentShop) return;
     api.get('/customers').then(res => {
@@ -44,15 +46,34 @@ export default function POS() {
     }).catch(() => toast.error('Failed to load products'));
   }, [currentShop]);
 
+  useEffect(() => {
+    if (!selectedCustomer) {
+      setCustomerPrices({});
+      return;
+    }
+    api.get(`/customers/${selectedCustomer}/prices`).then(res => {
+      const prices = res.data.data || {};
+      setCustomerPrices(prices);
+      // Auto update unit prices for products currently in cart
+      setCart(prev => prev.map(item => {
+        if (prices[item.id] !== undefined) {
+          return { ...item, price: prices[item.id] };
+        }
+        return item;
+      }));
+    }).catch(() => {});
+  }, [selectedCustomer]);
+
   const addToCart = (product: any) => {
     if (product.stock <= 0 && !product.is_service) return toast.error('Out of stock!');
+    const initialPrice = customerPrices[product.id] !== undefined ? customerPrices[product.id] : product.price;
     setCart(prev => {
       const existing = prev.find(p => p.id === product.id);
       if (existing) {
         if (!product.is_service && existing.qty >= product.stock) { toast.error('Max stock reached'); return prev; }
         return prev.map(p => p.id === product.id ? { ...p, qty: p.qty + 1 } : p);
       }
-      return [...prev, { ...product, qty: 1 }];
+      return [...prev, { ...product, price: initialPrice, qty: 1 }];
     });
   };
 
@@ -256,7 +277,26 @@ export default function POS() {
                     <span>₹{(parseFloat(item.price) * item.qty).toFixed(2)}</span>
                   </div>
                   <div className="flex-row space-between items-center">
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>₹{parseFloat(item.price).toFixed(2)} / unit</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.price}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCart(c => c.map((p, i) => i === idx ? { ...p, price: val } : p));
+                        }}
+                        style={{ width: '68px', fontSize: '13px', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-app)', border: '1px solid var(--border-light)', color: 'var(--text-primary)', outline: 'none', fontWeight: 500 }}
+                        title="Edit unit price"
+                      />
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>/ unit</span>
+                      {customerPrices[item.id] !== undefined && (
+                        <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', padding: '2px 6px', borderRadius: '4px', fontWeight: 500 }}>
+                          Custom
+                        </span>
+                      )}
+                    </div>
                     <div className="flex-row items-center gap-2" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-light)', borderRadius: '6px', padding: '4px' }}>
                       <button onClick={() => setCart(c => c.map((p, i) => i === idx ? { ...p, qty: Math.max(1, p.qty - 1) } : p))} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}><Minus size={14} color="var(--text-secondary)" /></button>
                       <input

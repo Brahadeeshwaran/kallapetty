@@ -37,9 +37,14 @@ api.interceptors.response.use(
       if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== '/auth/login' && originalRequest.url !== '/auth/refresh') {
         originalRequest._retry = true;
         try {
-          // Attempt to get a new access token using the HttpOnly cookie
-          const res = await axios.post(`${getBaseUrl()}/auth/refresh`, {}, { withCredentials: true });
+          // Attempt to get a new access token using the HttpOnly cookie or fallback token
+          const storedRefreshToken = localStorage.getItem('kallapetty_refresh_token');
+          const res = await axios.post(`${getBaseUrl()}/auth/refresh`, { refreshToken: storedRefreshToken }, { withCredentials: true });
           
+          if (res.data.refreshToken) {
+            localStorage.setItem('kallapetty_refresh_token', res.data.refreshToken);
+          }
+
           // Update memory and headers
           setAccessToken(res.data.token);
           originalRequest.headers.Authorization = `Bearer ${res.data.token}`;

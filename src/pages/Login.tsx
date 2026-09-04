@@ -52,6 +52,9 @@ export default function Login() {
     
     try {
       const res = await api.post('/auth/login', { phone, password });
+      if (res.data.refreshToken) {
+        localStorage.setItem('kallapetty_refresh_token', res.data.refreshToken);
+      }
       await login(res.data.token, res.data.user);
       navigate(getRedirectPath(res.data.user));
     } catch (err: any) {
