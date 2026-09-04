@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCustomers = exports.createCustomer = void 0;
+exports.getCustomerPrices = exports.getCustomers = exports.createCustomer = void 0;
 const db_1 = __importDefault(require("../models/db"));
 const app_validator_1 = require("../validators/app.validator");
 const createCustomer = async (req, res, next) => {
@@ -53,3 +53,22 @@ const getCustomers = async (req, res, next) => {
     }
 };
 exports.getCustomers = getCustomers;
+const getCustomerPrices = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const prices = await (0, db_1.default) `
+      SELECT product_id, custom_price 
+      FROM customer_product_prices 
+      WHERE customer_id = ${id}
+    `;
+        const priceMap = {};
+        prices.forEach(p => {
+            priceMap[p.product_id] = parseFloat(p.custom_price);
+        });
+        res.json({ status: 'success', data: priceMap });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getCustomerPrices = getCustomerPrices;

@@ -91,3 +91,19 @@ export const addSupplierPayment = async (req: AuthRequest, res: Response, next: 
     res.status(201).json({ status: 'success', data: payment });
   } catch (error) { next(error); }
 };
+
+export const getSupplierPrices = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const prices = await sql<any[]>`
+      SELECT product_id, last_purchase_price 
+      FROM supplier_product_prices 
+      WHERE supplier_id = ${id}
+    `;
+    const priceMap: Record<string, number> = {};
+    prices.forEach(p => {
+      priceMap[p.product_id] = parseFloat(p.last_purchase_price);
+    });
+    res.json({ status: 'success', data: priceMap });
+  } catch (error) { next(error); }
+};

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addSupplierPayment = exports.updateSupplier = exports.getSuppliers = exports.createSupplier = void 0;
+exports.getSupplierPrices = exports.addSupplierPayment = exports.updateSupplier = exports.getSuppliers = exports.createSupplier = void 0;
 const db_1 = __importDefault(require("../models/db"));
 const app_validator_1 = require("../validators/app.validator");
 const createSupplier = async (req, res, next) => {
@@ -98,3 +98,22 @@ const addSupplierPayment = async (req, res, next) => {
     }
 };
 exports.addSupplierPayment = addSupplierPayment;
+const getSupplierPrices = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const prices = await (0, db_1.default) `
+      SELECT product_id, last_purchase_price 
+      FROM supplier_product_prices 
+      WHERE supplier_id = ${id}
+    `;
+        const priceMap = {};
+        prices.forEach(p => {
+            priceMap[p.product_id] = parseFloat(p.last_purchase_price);
+        });
+        res.json({ status: 'success', data: priceMap });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getSupplierPrices = getSupplierPrices;

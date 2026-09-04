@@ -46,3 +46,19 @@ export const getCustomers = async (req: AuthRequest, res: Response, next: NextFu
     res.json({ status: 'success', data });
   } catch (error) { next(error); }
 };
+
+export const getCustomerPrices = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const prices = await sql<any[]>`
+      SELECT product_id, custom_price 
+      FROM customer_product_prices 
+      WHERE customer_id = ${id}
+    `;
+    const priceMap: Record<string, number> = {};
+    prices.forEach(p => {
+      priceMap[p.product_id] = parseFloat(p.custom_price);
+    });
+    res.json({ status: 'success', data: priceMap });
+  } catch (error) { next(error); }
+};
