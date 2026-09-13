@@ -10,9 +10,12 @@ const createSupplier = async (req, res, next) => {
     try {
         const data = app_validator_1.createSupplierSchema.parse(req.body);
         const created_by = req.user?.id || null;
+        const openingBal = data.opening_balance || 0;
+        const initialOutstanding = data.opening_balance_type === 'to_receive' ? -openingBal : openingBal;
         const suppliers = await (0, db_1.default) `
       INSERT INTO suppliers ${(0, db_1.default)({
             ...data,
+            outstanding_balance: initialOutstanding,
             business_id: req.user.business_id,
             created_by,
         })}

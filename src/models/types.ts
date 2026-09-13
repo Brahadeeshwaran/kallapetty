@@ -81,6 +81,10 @@ export interface Customer {
   business_id: string;
   name: string;
   phone: string | null;
+  address?: string | null;
+  gst_number?: string | null;
+  opening_balance?: number;
+  opening_balance_type?: string;
   created_at: Date;
   updated_at: Date | null;
   deleted_at: Date | null;
@@ -181,6 +185,8 @@ export interface Supplier {
   gst_number: string | null;
   address: string | null;
   outstanding_balance: number;
+  opening_balance?: number;
+  opening_balance_type?: string;
   created_at: Date;
   updated_at: Date | null;
   deleted_at: Date | null;

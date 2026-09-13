@@ -111,6 +111,12 @@ app.listen(port, async () => {
         CONSTRAINT unique_supplier_product UNIQUE (supplier_id, product_id)
       );
     `;
+    await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;`;
+    await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS gst_number VARCHAR(50);`;
+    await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(10, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_receive';`;
+    await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(12, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_pay';`;
     logger.info('[database]: Connected to PostgreSQL & custom pricing tables verified!');
   } catch (error) {
     logger.error('[database]: Failed to connect to PostgreSQL:', error);

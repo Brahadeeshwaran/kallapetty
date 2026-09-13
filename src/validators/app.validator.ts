@@ -21,6 +21,19 @@ export const createShopSchema = z.object({
 export const createCustomerSchema = z.object({
   name: z.string().min(3),
   phone: z.string().optional(),
+  address: z.string().optional(),
+  gst_number: z.string().optional(),
+  opening_balance: z.number().nonnegative().optional().default(0),
+  opening_balance_type: z.enum(['to_receive', 'to_pay']).optional().default('to_receive'),
+});
+
+export const updateCustomerSchema = z.object({
+  name: z.string().min(3).optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  gst_number: z.string().optional(),
+  opening_balance: z.number().nonnegative().optional(),
+  opening_balance_type: z.enum(['to_receive', 'to_pay']).optional(),
 });
 
 export const createProductSchema = z.object({
@@ -103,6 +116,8 @@ export const createSupplierSchema = z.object({
   phone: z.string().optional(),
   gst_number: z.string().optional(),
   address: z.string().optional(),
+  opening_balance: z.number().nonnegative().optional().default(0),
+  opening_balance_type: z.enum(['to_pay', 'to_receive']).optional().default('to_pay'),
 });
 
 export const updateSupplierSchema = z.object({
