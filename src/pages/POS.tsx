@@ -27,6 +27,7 @@ export default function POS() {
   const [orderType, setOrderType] = useState('pos');
   const [expectedDelivery, setExpectedDelivery] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [useCustomerAddress, setUseCustomerAddress] = useState(false);
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [payLater, setPayLater] = useState(false);
   const [printCopyType, setPrintCopyType] = useState('Original');
@@ -45,6 +46,18 @@ export default function POS() {
       setProducts(res.data.data);
     }).catch(() => toast.error('Failed to load products'));
   }, [currentShop]);
+
+  useEffect(() => {
+    if (useCustomerAddress && selectedCustomer) {
+      const cust = customers.find(c => c.id === selectedCustomer);
+      if (cust?.address) {
+        setDeliveryAddress(cust.address);
+      } else {
+        toast.error('Selected customer has no saved address');
+        setUseCustomerAddress(false);
+      }
+    }
+  }, [selectedCustomer, useCustomerAddress, customers]);
 
   useEffect(() => {
     if (!selectedCustomer) {
@@ -184,7 +197,7 @@ export default function POS() {
       toast.success('Bill Created!');
       setLastOrder(res.data.data);
       setCart([]); setAmountPaid(''); setDiscount(''); setPayLater(false);
-      setSelectedCustomer(''); setOrderType('pos'); setExpectedDelivery(''); setDeliveryAddress(''); setDeliveryNotes('');
+      setSelectedCustomer(''); setOrderType('pos'); setExpectedDelivery(''); setDeliveryAddress(''); setDeliveryNotes(''); setUseCustomerAddress(false);
       setPrintCopyType('Original'); setCustomPrintCopy('');
       setIsMobileCartOpen(false);
     } catch (error: any) {
@@ -404,8 +417,8 @@ export default function POS() {
           ) : (
             <form onSubmit={handleCheckout} className="modal-body">
               <div style={{ display: 'flex', background: 'var(--bg-hover)', borderRadius: '8px', padding: '4px', marginBottom: '16px' }}>
-                <button type="button" onClick={() => setOrderType('pos')} className={`btn ${orderType === 'pos' ? 'btn-primary' : ''}`} style={{ flex: 1, border: 'none', background: orderType === 'pos' ? '' : 'transparent', color: orderType === 'pos' ? '#fff' : 'var(--text-secondary)' }}>Direct / Walk-in</button>
-                <button type="button" onClick={() => setOrderType('delivery')} className={`btn ${orderType === 'delivery' ? 'btn-primary' : ''}`} style={{ flex: 1, border: 'none', background: orderType === 'delivery' ? '' : 'transparent', color: orderType === 'delivery' ? '#fff' : 'var(--text-secondary)' }}>For Delivery</button>
+                <button type="button" onClick={() => setOrderType('pos')} className={`btn ${orderType === 'pos' ? 'btn-primary' : ''}`} style={{ flex: 1, border: 'none', background: orderType === 'pos' ? '' : 'transparent', color: orderType === 'pos' ? 'var(--btn-primary-text)' : 'var(--text-secondary)' }}>Direct / Walk-in</button>
+                <button type="button" onClick={() => setOrderType('delivery')} className={`btn ${orderType === 'delivery' ? 'btn-primary' : ''}`} style={{ flex: 1, border: 'none', background: orderType === 'delivery' ? '' : 'transparent', color: orderType === 'delivery' ? 'var(--btn-primary-text)' : 'var(--text-secondary)' }}>For Delivery</button>
               </div>
 
               <div style={{ marginBottom: '16px' }}>
@@ -459,7 +472,35 @@ export default function POS() {
                 <div style={{ background: 'var(--bg-hover)', padding: '16px', borderRadius: '8px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <h4 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Delivery Details</h4>
                   <div><label>Expected Delivery Date</label><input type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} required /></div>
-                  <div><label>Delivery Address</label><textarea value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} required style={{ minHeight: '60px' }}></textarea></div>
+                  
+                  {selectedCustomer && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input 
+                        type="checkbox" 
+                        id="useCustAddr" 
+                        checked={useCustomerAddress} 
+                        onChange={e => {
+                          const checked = e.target.checked;
+                          setUseCustomerAddress(checked);
+                          if (checked) {
+                            const cust = customers.find(c => c.id === selectedCustomer);
+                            if (cust?.address) {
+                              setDeliveryAddress(cust.address);
+                            } else {
+                              toast.error('Selected customer has no saved address');
+                              setUseCustomerAddress(false);
+                            }
+                          }
+                        }} 
+                        style={{ width: 'auto', cursor: 'pointer' }} 
+                      />
+                      <label htmlFor="useCustAddr" style={{ margin: 0, cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)' }}>
+                        Use customer address as delivery address
+                      </label>
+                    </div>
+                  )}
+
+                  <div><label>Delivery Address</label><textarea value={deliveryAddress} onChange={e => { setDeliveryAddress(e.target.value); setUseCustomerAddress(false); }} required style={{ minHeight: '60px' }}></textarea></div>
                   <div><label>Notes (e.g., Courier Name, Bus)</label><input type="text" value={deliveryNotes} onChange={e => setDeliveryNotes(e.target.value)} /></div>
                 </div>
               )}
