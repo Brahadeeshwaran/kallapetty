@@ -67,6 +67,7 @@ export const updateShopSchema = z.object({
   invoice_suffix: z.string().optional(),
   next_invoice_number: z.number().int().positive().optional(),
   invoice_padding: z.number().int().min(1).max(10).optional(),
+  allow_data_reset: z.boolean().optional(),
   custom_column_definitions: z.array(z.object({
     id: z.string(),
     name: z.string(),
@@ -75,6 +76,12 @@ export const updateShopSchema = z.object({
     show_on_invoice: z.boolean().default(true),
     default_value: z.string().optional(),
   })).optional(),
+});
+
+export const resetShopDataSchema = z.object({
+  confirmation: z.literal('RESET'),
+  reset_stock_to_zero: z.boolean().optional().default(false),
+  reset_opening_balances: z.boolean().optional().default(false),
 });
 
 export const updateProductSchema = z.object({
