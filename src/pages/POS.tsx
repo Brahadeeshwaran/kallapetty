@@ -23,18 +23,27 @@ export default function POS() {
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
 
-  // Delivery Tracking
+  // Delivery & Transport Details
   const [orderType, setOrderType] = useState('pos');
   const [expectedDelivery, setExpectedDelivery] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [useCustomerAddress, setUseCustomerAddress] = useState(false);
   const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [transportName, setTransportName] = useState('');
+  const [lrNumber, setLrNumber] = useState('');
+  const [lrDate, setLrDate] = useState('');
+  const [isInterstate, setIsInterstate] = useState(false);
+  const [showTransport, setShowTransport] = useState(false);
   const [payLater, setPayLater] = useState(false);
   const [printCopyType, setPrintCopyType] = useState('Original');
   const [customPrintCopy, setCustomPrintCopy] = useState('');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [defaultInvoiceNumber, setDefaultInvoiceNumber] = useState('');
 
   const [customerPrices, setCustomerPrices] = useState<Record<string, number>>({});
+
+  const [posColumns, setPosColumns] = useState<any[]>([]);
 
   useEffect(() => {
     if (!currentShop) return;
@@ -45,6 +54,22 @@ export default function POS() {
     api.get(`/products?shop_id=${currentShop.id}`).then(res => {
       setProducts(res.data.data);
     }).catch(() => toast.error('Failed to load products'));
+
+    api.get('/shops').then(res => {
+      const shop = res.data.data?.find((s: any) => s.id === currentShop.id);
+      if (shop) {
+        if (shop.custom_column_definitions) {
+          setPosColumns(shop.custom_column_definitions.filter((c: any) => c.scope === 'pos'));
+        }
+        const prefix = shop.invoice_prefix || '';
+        const suffix = shop.invoice_suffix || '';
+        const num = shop.next_invoice_number || 1;
+        const padding = shop.invoice_padding || 1;
+        const formatted = `${prefix}${String(num).padStart(padding, '0')}${suffix}`;
+        setDefaultInvoiceNumber(formatted);
+        setInvoiceNumber(formatted);
+      }
+    }).catch(() => {});
   }, [currentShop]);
 
   useEffect(() => {
@@ -187,19 +212,40 @@ export default function POS() {
         expected_delivery: expectedDelivery ? new Date(expectedDelivery).toISOString() : undefined,
         delivery_address: deliveryAddress || undefined,
         delivery_notes: deliveryNotes || undefined,
+        transport_name: transportName || undefined,
+        lr_number: lrNumber || undefined,
+        lr_date: lrDate || undefined,
+        is_interstate: isInterstate,
+        invoice_number: invoiceNumber !== defaultInvoiceNumber ? invoiceNumber : undefined,
         items: cart.map(item => ({
           product_id: item.id,
           qty: item.qty,
           price: parseFloat(item.price),
-          tax_amount: (parseFloat(item.price) * item.qty) * ((parseFloat(item.tax_rate) || 0) / 100)
+          tax_amount: (parseFloat(item.price) * item.qty) * ((parseFloat(item.tax_rate) || 0) / 100),
+          unit: item.unit || 'Pcs',
+          custom_inputs: item.custom_inputs || {}
         }))
       });
       toast.success('Bill Created!');
       setLastOrder(res.data.data);
       setCart([]); setAmountPaid(''); setDiscount(''); setPayLater(false);
       setSelectedCustomer(''); setOrderType('pos'); setExpectedDelivery(''); setDeliveryAddress(''); setDeliveryNotes(''); setUseCustomerAddress(false);
+      setTransportName(''); setLrNumber(''); setLrDate(''); setIsInterstate(false); setShowTransport(false);
       setPrintCopyType('Original'); setCustomPrintCopy('');
       setIsMobileCartOpen(false);
+      // Refresh shop invoice number for next bill
+      api.get('/shops').then(r => {
+        const shop = r.data.data?.find((s: any) => s.id === currentShop.id);
+        if (shop) {
+          const prefix = shop.invoice_prefix || '';
+          const suffix = shop.invoice_suffix || '';
+          const num = shop.next_invoice_number || 1;
+          const padding = shop.invoice_padding || 1;
+          const formatted = `${prefix}${String(num).padStart(padding, '0')}${suffix}`;
+          setDefaultInvoiceNumber(formatted);
+          setInvoiceNumber(formatted);
+        }
+      }).catch(() => {});
     } catch (error: any) {
       console.error("CHECKOUT_ERROR:", error);
       toast.error(error.response?.data?.message || `Checkout failed: ${error.message || error}`);
@@ -248,18 +294,39 @@ export default function POS() {
             </form>
           </div>
 
-          <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '20px' }}>
+          <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'visible', padding: '20px' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Available Products</h3>
-            <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', alignContent: 'start', paddingBottom: '16px' }} className="custom-scrollbar pos-products-grid">
+            <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', alignContent: 'start', paddingBottom: '32px', paddingTop: '40px', marginTop: '-36px' }} className="custom-scrollbar pos-products-grid">
               {products.filter(p => p.shop_id === currentShop.id && (p.name.toLowerCase().includes(barcode.toLowerCase()) || (p.barcode && p.barcode.includes(barcode)))).map(p => (
-                <div key={p.id} onClick={() => addToCart(p)} className="product-card" style={{ background: 'var(--bg-app)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ fontWeight: 500, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={p.name}>{p.name}</div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>₹{parseFloat(p.price).toFixed(2)}</div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>{p.barcode || 'No Barcode'}</span>
-                    <span style={{ color: p.stock <= 5 ? 'var(--danger)' : 'var(--success)', fontWeight: 500, background: p.stock <= 5 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                      {p.stock} left
-                    </span>
+                <div 
+                  key={p.id} 
+                  onClick={() => addToCart(p)} 
+                  className="product-card pos-card-tooltip" 
+                  style={{ background: 'var(--bg-app)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '8px', minHeight: '110px', position: 'relative' }}
+                >
+                  <div className="sidebar-style-tooltip">
+                    {p.name}
+                  </div>
+                  <div>
+                    <div 
+                      style={{ fontWeight: 500, fontSize: '13px', lineHeight: '1.3', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '34px' }}
+                    >
+                      {p.name}
+                    </div>
+                    {p.category && (
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.category}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>₹{parseFloat(p.price).toFixed(2)}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                      <span style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75px' }}>{p.barcode || 'No Barcode'}</span>
+                      <span style={{ color: p.stock <= 5 ? 'var(--danger)' : 'var(--success)', fontWeight: 500, background: p.stock <= 5 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
+                        {p.stock} left
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -303,7 +370,7 @@ export default function POS() {
                         style={{ width: '68px', fontSize: '13px', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-app)', border: '1px solid var(--border-light)', color: 'var(--text-primary)', outline: 'none', fontWeight: 500 }}
                         title="Edit unit price"
                       />
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>/ unit</span>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>/ {item.unit || 'Pcs'}</span>
                       {customerPrices[item.id] !== undefined && (
                         <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', padding: '2px 6px', borderRadius: '4px', fontWeight: 500 }}>
                           Custom
@@ -341,6 +408,29 @@ export default function POS() {
                     </div>
                     <button onClick={() => setCart(c => c.filter((_, i) => i !== idx))} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}><Trash2 size={16} color="var(--danger)" /></button>
                   </div>
+
+                  {posColumns.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(posColumns.length, 2)}, 1fr)`, gap: '8px', paddingTop: '6px', borderTop: '1px dashed var(--border-light)' }}>
+                      {posColumns.map((col: any) => (
+                        <div key={col.id} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <label style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>{col.name}</label>
+                          <input
+                            type="text"
+                            placeholder={`Enter ${col.name}`}
+                            value={item.custom_inputs?.[col.id] || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCart(c => c.map((p, i) => i === idx ? {
+                                ...p,
+                                custom_inputs: { ...(p.custom_inputs || {}), [col.id]: val }
+                              } : p));
+                            }}
+                            style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', background: 'var(--bg-app)', border: '1px solid var(--border-light)', color: 'var(--text-primary)', outline: 'none' }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -422,6 +512,17 @@ export default function POS() {
               </div>
 
               <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>Invoice / Bill No.</label>
+                <input
+                  type="text"
+                  value={invoiceNumber}
+                  onChange={e => setInvoiceNumber(e.target.value)}
+                  placeholder="Auto-generated Bill No."
+                  style={{ fontWeight: 600, color: 'var(--accent-blue)', background: 'var(--bg-app)' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>Bill To (Customer)</label>
                 <CreatableSelect
                   options={[{ value: '', label: 'Walk-in Customer' }, ...customers.map(c => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))]}
@@ -457,10 +558,12 @@ export default function POS() {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <input type="checkbox" id="payLater" checked={payLater} onChange={e => {
-                  setPayLater(e.target.checked);
-                  if (!e.target.checked) setAmountPaid(finalTotal.toFixed(2));
-                }} style={{ width: 'auto' }} />
-                <label htmlFor="payLater" style={{ margin: 0, cursor: 'pointer' }}>Pay Later (Partial Pay)</label>
+                  const checked = e.target.checked;
+                  setPayLater(checked);
+                  if (checked) setAmountPaid('0');
+                  else setAmountPaid(finalTotal.toFixed(2));
+                }} style={{ width: 'auto', cursor: 'pointer' }} />
+                <label htmlFor="payLater" style={{ margin: 0, cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>Pay Later (Credit / Partial Payment)</label>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
@@ -505,7 +608,47 @@ export default function POS() {
                 </div>
               )}
 
-              <button type="submit" className="btn btn-primary" disabled={loading} style={{ padding: '14px', marginTop: '16px', width: '100%' }}>Confirm Bill</button>
+              <div style={{ marginBottom: '16px', background: 'var(--bg-hover)', padding: '12px', borderRadius: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowTransport(!showTransport)}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontWeight: 600, cursor: 'pointer', padding: 0, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {showTransport ? '▼ Hide Transport Details' : '▶ Add Transport Details (Optional)'}
+                </button>
+                {showTransport && (
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+                      <input 
+                        type="checkbox" 
+                        id="posInterstate" 
+                        checked={isInterstate} 
+                        onChange={e => setIsInterstate(e.target.checked)} 
+                        style={{ width: 'auto', cursor: 'pointer' }}
+                      />
+                      <label htmlFor="posInterstate" style={{ margin: 0, cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                        Apply IGST (Out of State Sale)
+                      </label>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', marginBottom: '4px' }}>Transport Name</label>
+                      <input type="text" placeholder="e.g. Rajalakshmi Transport" value={transportName} onChange={e => setTransportName(e.target.value)} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', marginBottom: '4px' }}>LR No. / Docket No.</label>
+                        <input type="text" placeholder="e.g. 239" value={lrNumber} onChange={e => setLrNumber(e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', marginBottom: '4px' }}>LR Date</label>
+                        <input type="date" value={lrDate} onChange={e => setLrDate(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button type="submit" className="btn btn-primary" disabled={loading} style={{ padding: '14px', marginTop: '8px', width: '100%' }}>Confirm Bill</button>
             </form>
           )}
         </Modal>
@@ -537,6 +680,68 @@ export default function POS() {
         .product-card:hover { border-color: var(--text-primary) !important; transform: translateY(-2px); }
         .qty-input::-webkit-inner-spin-button, .qty-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .qty-input { -moz-appearance: textfield; }
+
+        .pos-card-tooltip {
+          position: relative;
+        }
+
+        .pos-card-tooltip:hover {
+          z-index: 100 !important;
+        }
+
+        .pos-card-tooltip .sidebar-style-tooltip {
+          opacity: 0;
+          visibility: hidden;
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 50%;
+          transform: translateX(-50%) translateY(4px);
+          background: var(--bg-card);
+          color: var(--text-primary);
+          border: 1px solid var(--border-light);
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          white-space: normal;
+          width: max-content;
+          max-width: 200px;
+          word-break: break-word;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+          pointer-events: none;
+          z-index: 1000;
+          transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+        }
+
+        .pos-card-tooltip .sidebar-style-tooltip::after {
+          content: "";
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          margin-left: -5px;
+          border-width: 5px 5px 0 5px;
+          border-style: solid;
+          border-color: var(--bg-card) transparent transparent transparent;
+          z-index: 1001;
+        }
+
+        .pos-card-tooltip .sidebar-style-tooltip::before {
+          content: "";
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          margin-left: -6px;
+          border-width: 6px 6px 0 6px;
+          border-style: solid;
+          border-color: var(--border-light) transparent transparent transparent;
+          z-index: 1000;
+        }
+
+        .pos-card-tooltip:hover .sidebar-style-tooltip {
+          opacity: 1;
+          visibility: visible;
+          transform: translateX(-50%) translateY(0);
+        }
       `}</style>
     </div>
   );

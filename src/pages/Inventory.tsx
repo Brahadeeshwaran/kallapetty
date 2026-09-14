@@ -19,8 +19,18 @@ export default function Inventory() {
   const [stockLogs, setStockLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
+  const [customColumns, setCustomColumns] = useState<any[]>([]);
+
   useEffect(() => {
-    if (currentShop) fetchData();
+    if (currentShop) {
+      fetchData();
+      api.get('/shops').then(res => {
+        const shop = res.data.data?.find((s: any) => s.id === currentShop.id);
+        if (shop && shop.custom_column_definitions) {
+          setCustomColumns(shop.custom_column_definitions.filter((c: any) => c.scope === 'product'));
+        }
+      }).catch(() => {});
+    }
   }, [currentShop]);
 
   const fetchData = async () => {
@@ -35,24 +45,24 @@ export default function Inventory() {
     e.preventDefault();
     if (!currentShop) return;
     try {
+      const payload = {
+        name: formModal.name,
+        barcode: formModal.barcode,
+        price: parseFloat(formModal.price),
+        stock: parseInt(formModal.stock, 10),
+        tax_rate: parseFloat(formModal.tax_rate || 0),
+        tax_type: formModal.tax_type || 'flat',
+        unit: formModal.unit || 'Pcs',
+        custom_attributes: formModal.custom_attributes || {},
+      };
+
       if (formModal.id) {
-        await api.put(`/products/${formModal.id}`, {
-          name: formModal.name,
-          barcode: formModal.barcode,
-          price: parseFloat(formModal.price),
-          stock: parseInt(formModal.stock, 10),
-          tax_rate: parseFloat(formModal.tax_rate || 0),
-          tax_type: formModal.tax_type || 'flat'
-        });
+        await api.put(`/products/${formModal.id}`, payload);
         toast.success('Product updated!');
       } else {
         await api.post('/products', {
-          ...formModal,
+          ...payload,
           shop_id: currentShop.id,
-          price: parseFloat(formModal.price),
-          stock: parseInt(formModal.stock, 10),
-          tax_rate: parseFloat(formModal.tax_rate || 0),
-          tax_type: formModal.tax_type || 'flat',
           is_service: false
         });
         toast.success('Product added!');
@@ -113,15 +123,32 @@ export default function Inventory() {
       <div className="table-container">
         <table>
           <thead>
-            <tr><th>Product Name</th><th>Barcode</th><th>Price</th><th>Tax</th><th>Stock</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
+            <tr>
+              <th>Product Name</th>
+              <th>Barcode</th>
+              {customColumns.map((col: any) => (
+                <th key={col.id}>{col.name}</th>
+              ))}
+              <th>Price</th>
+              <th>Tax</th>
+              <th>Stock</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
+            </tr>
           </thead>
           <tbody>
-            {loading ? (<tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>Loading...</td></tr>)
-              : products.length === 0 ? (<tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>No products found</td></tr>)
+            {loading ? (<tr><td colSpan={6 + customColumns.length} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>Loading...</td></tr>)
+              : products.length === 0 ? (<tr><td colSpan={6 + customColumns.length} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>No products found</td></tr>)
                 : products.map((p) => (
                   <tr key={p.id}>
                     <td data-label="Product Name" style={{ fontWeight: 500 }}>{p.name}</td>
                     <td data-label="Barcode"><span style={{ background: 'var(--bg-hover)', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{p.barcode || 'N/A'}</span></td>
+                    {customColumns.map((col: any) => (
+                      <td key={col.id} data-label={col.name}>
+                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          {p.custom_attributes?.[col.id] || '-'}
+                        </span>
+                      </td>
+                    ))}
                     <td data-label="Price">₹{parseFloat(p.price).toFixed(2)}</td>
                     <td data-label="Tax">
                       <span style={{ fontSize: '12px', background: 'var(--bg-hover)', padding: '2px 6px', borderRadius: '4px' }}>
@@ -129,7 +156,9 @@ export default function Inventory() {
                       </span>
                     </td>
                     <td data-label="Stock">
-                      <span style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', fontWeight: 500, background: p.stock <= 5 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: p.stock <= 5 ? 'var(--danger)' : 'var(--success)' }}>{p.stock} units</span>
+                      <span style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', fontWeight: 500, background: p.stock <= 5 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: p.stock <= 5 ? 'var(--danger)' : 'var(--success)' }}>
+                        {p.stock} {p.unit || 'Pcs'}
+                      </span>
                     </td>
                     <td data-label="Actions" style={{ textAlign: 'right', display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                       <button title="View History" onClick={() => openHistory(p)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px' }}><History size={16} color="var(--accent-blue)" /></button>
@@ -155,7 +184,31 @@ export default function Inventory() {
             <div className="flex-row gap-4">
               <div style={{ flex: 1 }}><label>Price (₹)</label><input type="number" step="0.01" value={formModal.price} onChange={e => setFormModal({ ...formModal, price: e.target.value })} required /></div>
               <div style={{ flex: 1 }}><label>Stock</label><input type="number" value={formModal.stock} onChange={e => setFormModal({ ...formModal, stock: e.target.value })} required /></div>
+              <div style={{ flex: 1 }}><label>Unit</label><input type="text" placeholder="e.g. Pcs, Kg, Meter" value={formModal.unit || 'Pcs'} onChange={e => setFormModal({ ...formModal, unit: e.target.value })} required /></div>
             </div>
+
+            {customColumns.length > 0 && (
+              <div className="grid-2">
+                {customColumns.map((col: any) => (
+                  <div key={col.id}>
+                    <label>{col.name}</label>
+                    <input
+                      type="text"
+                      placeholder={`Enter ${col.name}`}
+                      value={formModal.custom_attributes?.[col.id] || ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setFormModal((fm: any) => ({
+                          ...fm,
+                          custom_attributes: { ...(fm.custom_attributes || {}), [col.id]: val }
+                        }));
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex-row gap-4" style={{ marginTop: '16px' }}>
               <div style={{ flex: 1 }}><label>Tax Rate (%)</label><input type="number" step="0.1" value={formModal.tax_rate || 0} onChange={e => setFormModal({ ...formModal, tax_rate: e.target.value })} required /></div>
               <div style={{ flex: 1 }}><label>Tax Type</label>

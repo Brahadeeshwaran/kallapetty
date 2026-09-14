@@ -10,12 +10,12 @@ export default function InvoicePrint() {
   const [business, setBusiness] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const [shopColumns, setShopColumns] = useState<any[]>([]);
+
   useEffect(() => {
     if (!id) return;
     const fetchInvoiceData = async () => {
       try {
-        // Find the specific order. In a real app we might have a GET /orders/:id
-        // Since we only have GET /orders for the shop, we fetch and find.
         const res = await api.get('/orders');
         const allOrders = res.data.data;
         const currentOrder = allOrders.find((o: any) => o.id === id);
@@ -28,13 +28,42 @@ export default function InvoicePrint() {
         
         setOrder(currentOrder);
 
-        // Fetch business details
         const bRes = await api.get('/businesses/me');
         setBusiness(bRes.data.data);
+
+        api.get('/shops').then(sRes => {
+          const shop = sRes.data.data?.find((s: any) => s.id === currentOrder.shop_id);
+          if (shop && shop.custom_column_definitions && shop.custom_column_definitions.length > 0) {
+            const activeCols = shop.custom_column_definitions.filter((c: any) => c.show_on_invoice !== false);
+            if (activeCols.some((c: any) => c.scope === 'system')) {
+              if (!activeCols.some((c: any) => c.id === 'sl_no')) {
+                setShopColumns([{ id: 'sl_no', name: 'Sl.No', scope: 'system', align: 'center', show_on_invoice: true }, ...activeCols]);
+              } else {
+                setShopColumns(activeCols);
+              }
+            } else {
+              setShopColumns([
+                { id: 'sl_no', name: 'Sl.No', scope: 'system', align: 'center', show_on_invoice: true },
+                { id: 'item_name', name: 'Particulars', scope: 'system', align: 'left', show_on_invoice: true },
+                ...activeCols,
+                { id: 'qty', name: 'Qty', scope: 'system', align: 'center', show_on_invoice: true },
+                { id: 'price', name: 'Rate', scope: 'system', align: 'right', show_on_invoice: true },
+                { id: 'amount', name: 'Amount', scope: 'system', align: 'right', show_on_invoice: true },
+              ]);
+            }
+          } else {
+            setShopColumns([
+              { id: 'sl_no', name: 'Sl.No', scope: 'system', align: 'center', show_on_invoice: true },
+              { id: 'item_name', name: 'Particulars', scope: 'system', align: 'left', show_on_invoice: true },
+              { id: 'qty', name: 'Qty', scope: 'system', align: 'center', show_on_invoice: true },
+              { id: 'price', name: 'Rate', scope: 'system', align: 'right', show_on_invoice: true },
+              { id: 'amount', name: 'Amount', scope: 'system', align: 'right', show_on_invoice: true },
+            ]);
+          }
+        }).catch(() => {});
         
         setLoading(false);
 
-        // Auto print after a short delay if not in preview mode
         const urlParams = new URLSearchParams(window.location.search);
         if (!urlParams.get('preview')) {
           setTimeout(() => {
@@ -55,6 +84,15 @@ export default function InvoicePrint() {
   const isThermal = business?.invoice_format === 'thermal';
   const shopName = order.shop?.name || business?.name;
   
+  const businessGstState = business?.gst_number ? String(business.gst_number).trim().substring(0, 2) : '';
+  const customerGstState = order.customer?.gst_number ? String(order.customer.gst_number).trim().substring(0, 2) : '';
+
+  // Default is CGST + SGST. Applies IGST only if checkbox ticked OR customer GSTIN state differs
+  const isInterState = Boolean(
+    order.is_interstate || 
+    (businessGstState && customerGstState && businessGstState !== customerGstState)
+  );
+  
   const finalTotal = parseFloat(order.total_amount) - parseFloat(order.discount_amount);
   const amountPaid = parseFloat(order.amount_paid) || 0;
   const balanceDue = Math.max(0, finalTotal - amountPaid);
@@ -62,10 +100,26 @@ export default function InvoicePrint() {
   const urlParams = new URLSearchParams(window.location.search);
   const copyLabel = urlParams.get('label') || '';
 
+  const getCellContent = (item: any, col: any, index: number = 0) => {
+    if (col.id === 'sl_no') return index + 1;
+    if (col.id === 'item_name') {
+      return item.product?.name || 'Item';
+    }
+    if (col.id === 'unit') return item.unit || '-';
+    if (col.id === 'qty') return `${item.qty}${item.unit ? ` ${item.unit}` : ''}`;
+    if (col.id === 'price') return parseFloat(item.price).toFixed(2);
+    if (col.id === 'tax') return (parseFloat(item.tax_amount) || 0).toFixed(2);
+    if (col.id === 'amount') return ((parseFloat(item.price) * item.qty) + (parseFloat(item.tax_amount) || 0)).toFixed(2);
+    
+    // Custom Columns
+    const val = col.scope === 'product' ? item.product?.custom_attributes?.[col.id] : item.custom_inputs?.[col.id];
+    return val || '-';
+  };
+
   if (isThermal) {
     return (
       <div style={{
-        width: '300px', // Standard thermal printer width (80mm)
+        width: '300px',
         margin: '0 auto',
         padding: '10px',
         background: '#fff',
@@ -88,25 +142,32 @@ export default function InvoicePrint() {
         </div>
 
         <div style={{ borderTop: '1px dashed #000', borderBottom: '1px dashed #000', padding: '5px 0', marginBottom: '10px' }}>
-          <p style={{ margin: '2px 0' }}>Bill No: {order.id.split('-')[0].toUpperCase()}</p>
+          <p style={{ margin: '2px 0' }}>Bill No: {order.invoice_number || order.id.split('-')[0].toUpperCase()}</p>
           <p style={{ margin: '2px 0' }}>Date: {formatDate(order.created_at)}</p>
           {order.customer && <p style={{ margin: '2px 0' }}>Customer: {order.customer.name}</p>}
+          {order.transport_name && <p style={{ margin: '2px 0' }}>Transport: {order.transport_name}</p>}
+          {order.lr_number && <p style={{ margin: '2px 0' }}>LR No: {order.lr_number}</p>}
+          {order.lr_date && <p style={{ margin: '2px 0' }}>LR Date: {formatDate(order.lr_date)}</p>}
         </div>
 
         <table style={{ width: '100%', marginBottom: '10px', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px dashed #000' }}>
-              <th style={{ textAlign: 'left', paddingBottom: '4px' }}>Item</th>
-              <th style={{ textAlign: 'center', paddingBottom: '4px' }}>Qty</th>
-              <th style={{ textAlign: 'right', paddingBottom: '4px' }}>Amt</th>
+              {shopColumns.map(col => (
+                <th key={col.id} style={{ textAlign: col.align || 'left', paddingBottom: '4px' }}>
+                  {col.name}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {order.order_items?.map((item: any) => (
+            {order.order_items?.map((item: any, idx: number) => (
               <tr key={item.id}>
-                <td style={{ padding: '4px 0' }}>{item.product?.name || 'Item'}</td>
-                <td style={{ textAlign: 'center', padding: '4px 0' }}>{item.qty}</td>
-                <td style={{ textAlign: 'right', padding: '4px 0' }}>{(parseFloat(item.price) * item.qty).toFixed(2)}</td>
+                {shopColumns.map(col => (
+                  <td key={col.id} style={{ textAlign: col.align || 'left', padding: '4px 0' }}>
+                    {getCellContent(item, col, idx)}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -118,10 +179,23 @@ export default function InvoicePrint() {
             <span>{(parseFloat(order.total_amount) - parseFloat(order.tax_amount)).toFixed(2)}</span>
           </div>
           {parseFloat(order.tax_amount) > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Tax (GST)</span>
-              <span>{parseFloat(order.tax_amount).toFixed(2)}</span>
-            </div>
+            isInterState ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>IGST</span>
+                <span>{parseFloat(order.tax_amount).toFixed(2)}</span>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>CGST</span>
+                  <span>{(parseFloat(order.tax_amount) / 2).toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>SGST</span>
+                  <span>{(parseFloat(order.tax_amount) / 2).toFixed(2)}</span>
+                </div>
+              </>
+            )
           )}
           {parseFloat(order.discount_amount) > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -187,29 +261,42 @@ export default function InvoicePrint() {
           {business?.gst_number && <p style={{ margin: '5px 0', color: '#555', fontWeight: 'bold' }}>GSTIN: {business.gst_number}</p>}
         </div>
         <div style={{ textAlign: 'right' }}>
-          <h2 style={{ margin: 0, fontSize: '32px', color: '#666', textTransform: 'uppercase', letterSpacing: '2px' }}>
+          <h2 style={{ margin: 0, fontSize: '16px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
             {copyLabel ? `${copyLabel} INVOICE` : 'TAX INVOICE'}
           </h2>
-          <div style={{ marginTop: '20px' }}>
-            <p style={{ margin: '5px 0' }}><strong>Invoice No:</strong> {order.id.split('-')[0].toUpperCase()}</p>
-            <p style={{ margin: '5px 0' }}><strong>Date:</strong> {formatDate(order.created_at)}</p>
+          <div style={{ marginTop: '12px', fontSize: '13px' }}>
+            <p style={{ margin: '3px 0' }}><strong>Invoice No:</strong> {order.invoice_number || order.id.split('-')[0].toUpperCase()}</p>
+            <p style={{ margin: '3px 0' }}><strong>Date:</strong> {formatDate(order.created_at)}</p>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <div style={{ background: '#f9f9f9', padding: '10px', borderRadius: '4px', width: '45%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', gap: '15px' }}>
+        <div style={{ background: '#f9f9f9', padding: '10px', borderRadius: '4px', flex: 1 }}>
           <h3 style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#555' }}>Billed To:</h3>
           {order.customer ? (
             <>
               <p style={{ margin: '3px 0', fontWeight: 'bold', fontSize: '16px' }}>{order.customer.name}</p>
               {order.customer.phone && <p style={{ margin: '3px 0', fontSize: '14px' }}>Phone: {order.customer.phone}</p>}
+              {order.customer.address && <p style={{ margin: '3px 0', fontSize: '13px', color: '#666' }}>{order.customer.address}</p>}
+              {order.customer.gst_number && <p style={{ margin: '3px 0', fontSize: '13px', color: '#666', fontWeight: 500 }}>GSTIN: {order.customer.gst_number}</p>}
             </>
           ) : (
             <p style={{ margin: '3px 0', color: '#888' }}>Walk-in Customer</p>
           )}
         </div>
-        <div style={{ background: '#f9f9f9', padding: '10px', borderRadius: '4px', width: '45%' }}>
+
+        {(order.transport_name || order.lr_number || order.lr_date || order.delivery_address) && (
+          <div style={{ background: '#f9f9f9', padding: '10px', borderRadius: '4px', flex: 1 }}>
+            <h3 style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#555' }}>Transport & Shipping:</h3>
+            {order.transport_name && <p style={{ margin: '3px 0', fontSize: '13px' }}><strong>Transport:</strong> {order.transport_name}</p>}
+            {order.lr_number && <p style={{ margin: '3px 0', fontSize: '13px' }}><strong>LR No.:</strong> {order.lr_number}</p>}
+            {order.lr_date && <p style={{ margin: '3px 0', fontSize: '13px' }}><strong>LR Date:</strong> {formatDate(order.lr_date)}</p>}
+            {order.delivery_address && <p style={{ margin: '3px 0', fontSize: '13px', color: '#444' }}><strong>Ship To:</strong> {order.delivery_address}</p>}
+          </div>
+        )}
+
+        <div style={{ background: '#f9f9f9', padding: '10px', borderRadius: '4px', width: (order.transport_name || order.lr_number || order.lr_date) ? '25%' : '45%' }}>
           <h3 style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#555' }}>Payment Status:</h3>
           <p style={{ margin: '3px 0', fontWeight: 'bold', fontSize: '16px', textTransform: 'uppercase', color: order.status === 'paid' ? '#10b981' : order.status === 'partial' ? '#f59e0b' : '#ef4444' }}>
             {order.status}
@@ -220,28 +307,23 @@ export default function InvoicePrint() {
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
         <thead>
           <tr style={{ background: '#333', color: '#fff' }}>
-            <th style={{ padding: '8px', textAlign: 'left' }}>Item Description</th>
-            <th style={{ padding: '8px', textAlign: 'center' }}>Qty</th>
-            <th style={{ padding: '8px', textAlign: 'right' }}>Unit Price (₹)</th>
-            <th style={{ padding: '8px', textAlign: 'right' }}>Tax (₹)</th>
-            <th style={{ padding: '8px', textAlign: 'right' }}>Amount (₹)</th>
+            {shopColumns.map(col => (
+              <th key={col.id} style={{ padding: '8px', textAlign: col.align || 'left' }}>
+                {col.name}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {order.order_items?.map((item: any, idx: number) => {
-             const basePrice = parseFloat(item.price);
-             const itemTax = parseFloat(item.tax_amount) || 0;
-             const lineTotal = (basePrice * item.qty) + itemTax;
-             return (
-               <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
-                 <td style={{ padding: '8px', textAlign: 'left' }}>{item.product?.name || `Product ${idx+1}`}</td>
-                 <td style={{ padding: '8px', textAlign: 'center' }}>{item.qty}</td>
-                 <td style={{ padding: '8px', textAlign: 'right' }}>{basePrice.toFixed(2)}</td>
-                 <td style={{ padding: '8px', textAlign: 'right' }}>{itemTax.toFixed(2)}</td>
-                 <td style={{ padding: '8px', textAlign: 'right' }}>{lineTotal.toFixed(2)}</td>
-               </tr>
-             )
-          })}
+          {order.order_items?.map((item: any, idx: number) => (
+            <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
+              {shopColumns.map(col => (
+                <td key={col.id} style={{ padding: '8px', textAlign: col.align || 'left' }}>
+                  {getCellContent(item, col, idx)}
+                </td>
+              ))}
+            </tr>
+          ))}
         </tbody>
       </table>
 
@@ -252,10 +334,23 @@ export default function InvoicePrint() {
             <span>₹{(parseFloat(order.total_amount) - parseFloat(order.tax_amount)).toFixed(2)}</span>
           </div>
           {parseFloat(order.tax_amount) > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #eee' }}>
-              <span>Total Tax:</span>
-              <span>₹{parseFloat(order.tax_amount).toFixed(2)}</span>
-            </div>
+            isInterState ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #eee' }}>
+                <span>IGST:</span>
+                <span>₹{parseFloat(order.tax_amount).toFixed(2)}</span>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #eee' }}>
+                  <span>CGST:</span>
+                  <span>₹{(parseFloat(order.tax_amount) / 2).toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #eee' }}>
+                  <span>SGST:</span>
+                  <span>₹{(parseFloat(order.tax_amount) / 2).toFixed(2)}</span>
+                </div>
+              </>
+            )
           )}
           {parseFloat(order.discount_amount) > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #eee', color: '#ef4444' }}>
