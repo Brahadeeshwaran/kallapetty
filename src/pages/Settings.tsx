@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Building, FileText, Landmark } from 'lucide-react';
+import { Building, FileText, Landmark, AlertTriangle } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
 import { selectStyles } from '../lib/utils';
+import Modal from '../components/Modal';
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetConfirmInput, setResetConfirmInput] = useState('');
+  const [resetStockToZero, setResetStockToZero] = useState(false);
+  const [resetOpeningBalances, setResetOpeningBalances] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
   const [form, setForm] = useState({
     name: '',
     owner_phone: '',
@@ -19,6 +26,8 @@ export default function Settings() {
     logo_url: '',
     invoice_format: 'thermal',
   });
+
+  const [allowDataReset, setAllowDataReset] = useState(false);
 
   const [invoiceSettings, setInvoiceSettings] = useState({
     invoice_prefix: '',
@@ -46,6 +55,7 @@ export default function Settings() {
       const res = await api.get('/shops');
       const shop = res.data.data?.[0];
       if (shop) {
+        setAllowDataReset(Boolean(shop.allow_data_reset));
         setInvoiceSettings({
           invoice_prefix: shop.invoice_prefix || '',
           invoice_suffix: shop.invoice_suffix || '',
@@ -496,6 +506,131 @@ export default function Settings() {
           </button>
         </div>
       </form>
+
+      {/* DANGER ZONE: DATA MANAGEMENT / NEW FINANCIAL YEAR RESET (Only visible if enabled by Super Admin) */}
+      {allowDataReset && (
+        <div className="card" style={{ marginTop: '32px', borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.02)' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--danger)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={18} color="var(--danger)" /> Reset Practice / Financial Year Data
+          </h2>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+            Clear test/practice transactions for this shop before starting a new financial year.
+            This will delete past <strong>bills, payment receipts, expenses, stock log history, and purchase invoices</strong>, and reset bill serial number to 1.
+            Your <strong>Customers, Suppliers, Products, and Business Profile will remain 100% safe</strong>.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setShowResetModal(true);
+              setResetConfirmInput('');
+              setResetStockToZero(false);
+              setResetOpeningBalances(false);
+            }}
+            className="btn btn-danger"
+            style={{ padding: '10px 18px', fontSize: '13px' }}
+          >
+            Reset Practice / Transaction Data
+          </button>
+        </div>
+      )}
+
+      {showResetModal && (
+        <Modal
+          title="⚠️ Confirm Data Reset"
+          onClose={() => setShowResetModal(false)}
+          width="480px"
+        >
+          <div className="modal-body" style={{ padding: '20px' }}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', padding: '14px', borderRadius: '8px', marginBottom: '16px' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--danger)', fontWeight: 600, lineHeight: '1.4' }}>
+                Warning: This action will permanently erase all sales invoices, payments, expenses, and stock log history for this specific shop.
+              </p>
+            </div>
+
+            <div style={{ background: 'var(--bg-hover)', padding: '12px 16px', borderRadius: '6px', marginBottom: '16px', fontSize: '13px' }}>
+              <p style={{ fontWeight: 600, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>Data Summary:</p>
+              <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--text-secondary)' }}>
+                <li>❌ Cleared: Orders, Bills, Payments, Expenses, Stock History</li>
+                <li>✅ Retained: Customer profiles, Supplier profiles, Product catalog</li>
+              </ul>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={resetStockToZero}
+                  onChange={e => setResetStockToZero(e.target.checked)}
+                />
+                Reset current product stock quantities to 0
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={resetOpeningBalances}
+                  onChange={e => setResetOpeningBalances(e.target.checked)}
+                />
+                Reset customer & supplier opening balances to 0
+              </label>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                Type <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>RESET</span> below to confirm:
+              </label>
+              <input
+                type="text"
+                value={resetConfirmInput}
+                onChange={e => setResetConfirmInput(e.target.value)}
+                placeholder="Type RESET"
+                style={{ fontWeight: 'bold', letterSpacing: '1px' }}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '12px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={resetConfirmInput.trim() !== 'RESET' || resetting}
+                onClick={async () => {
+                  setResetting(true);
+                  try {
+                    const shopsRes = await api.get('/shops');
+                    const shop = shopsRes.data.data?.[0];
+                    if (!shop) throw new Error('Shop context not found');
+
+                    await api.post(`/shops/${shop.id}/reset-data`, {
+                      confirmation: 'RESET',
+                      reset_stock_to_zero: resetStockToZero,
+                      reset_opening_balances: resetOpeningBalances,
+                    });
+
+                    toast.success('Practice transactions reset successfully!');
+                    setShowResetModal(false);
+                  } catch (error: any) {
+                    toast.error(error.response?.data?.message || 'Failed to reset shop data');
+                  } finally {
+                    setResetting(false);
+                  }
+                }}
+                className="btn btn-danger"
+                style={{ flex: 1, padding: '12px', opacity: resetConfirmInput.trim() !== 'RESET' ? 0.5 : 1 }}
+              >
+                {resetting ? 'Resetting...' : 'Confirm Permanent Reset'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

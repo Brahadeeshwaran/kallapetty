@@ -150,7 +150,7 @@ export default function AdminSettings() {
         }
         await api.put(`/businesses/${editModal.data.id}`, payload);
       } else if (editModal.type === 'shop') {
-        await api.put(`/shops/${editModal.data.id}`, { name: editModal.data.name });
+        await api.put(`/shops/${editModal.data.id}`, { name: editModal.data.name, allow_data_reset: Boolean(editModal.data.allow_data_reset) });
       } else if (editModal.type === 'user') {
         await api.put(`/users/${editModal.data.id}`, { phone: editModal.data.phone, password: editModal.data.password || undefined, full_name: editModal.data.full_name });
       }
@@ -262,7 +262,7 @@ export default function AdminSettings() {
                   <button type="submit" className="btn btn-primary" style={{ height: '46px' }}>Add Shop</button>
                 </form>
               </div>
-              <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+                  <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
                 <table>
                   <thead><tr><th>Shop Name</th><th>Parent Business ID</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
                   <tbody>
@@ -272,7 +272,23 @@ export default function AdminSettings() {
                       <tr key={s.id}>
                         <td data-label="Shop Name" style={{ fontWeight: 500 }}>{s.name}</td>
                         <td data-label="Business ID"><span style={{ fontSize: '12px', fontFamily: 'monospace', background: 'var(--bg-hover)', padding: '4px 8px', borderRadius: '4px' }}>{s.business_id.split('-')[0]}</span></td>
-                        <td data-label="Action" style={{ textAlign: 'right' }}><button onClick={() => setEditModal({ type: 'shop', data: {...s} })} style={{ background: 'var(--bg-hover)', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '6px' }}><Edit size={14} color="var(--text-secondary)" /></button></td>
+                        <td data-label="Action" style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                            <button
+                              title="Reset Practice Data"
+                              onClick={() => {
+                                setEditModal({
+                                  type: 'reset_data',
+                                  data: { shop_id: s.id, shop_name: s.name, reset_confirm_input: '', reset_stock: false, reset_opening_balances: false }
+                                });
+                              }}
+                              style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}
+                            >
+                              Reset Data
+                            </button>
+                            <button onClick={() => setEditModal({ type: 'shop', data: {...s} })} style={{ background: 'var(--bg-hover)', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '6px' }}><Edit size={14} color="var(--text-secondary)" /></button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -340,14 +356,90 @@ export default function AdminSettings() {
         </>
       )}
 
-      {/* EDIT MODAL */}
+      {/* EDIT & RESET MODALS */}
       {editModal && (
         <Modal 
-          title={`Edit ${editModal.type.charAt(0).toUpperCase() + editModal.type.slice(1)}`}
+          title={editModal.type === 'reset_data' ? `⚠️ Reset Data: ${editModal.data.shop_name}` : `Edit ${editModal.type.charAt(0).toUpperCase() + editModal.type.slice(1)}`}
           onClose={() => setEditModal(null)}
           width="480px"
         >
-          <form onSubmit={handleUpdate} className="modal-body">
+          {editModal.type === 'reset_data' ? (
+            <div className="modal-body">
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', padding: '14px', borderRadius: '8px', marginBottom: '16px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--danger)', fontWeight: 600, lineHeight: '1.4' }}>
+                  Super Admin Action: Permanently clear all sales bills, payments, expenses, and stock log history for <strong>{editModal.data.shop_name}</strong>.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={editModal.data.reset_stock}
+                    onChange={e => setEditModal({ ...editModal, data: { ...editModal.data, reset_stock: e.target.checked } })}
+                  />
+                  Reset product stock quantities to 0
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={editModal.data.reset_opening_balances}
+                    onChange={e => setEditModal({ ...editModal, data: { ...editModal.data, reset_opening_balances: e.target.checked } })}
+                  />
+                  Reset customer & supplier opening balances to 0
+                </label>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                  Type <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>RESET</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={editModal.data.reset_confirm_input}
+                  onChange={e => setEditModal({ ...editModal, data: { ...editModal.data, reset_confirm_input: e.target.value } })}
+                  placeholder="Type RESET"
+                  style={{ fontWeight: 'bold', letterSpacing: '1px' }}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditModal(null)}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, padding: '12px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={editModal.data.reset_confirm_input.trim() !== 'RESET'}
+                  onClick={async () => {
+                    try {
+                      await api.post(`/shops/${editModal.data.shop_id}/reset-data`, {
+                        confirmation: 'RESET',
+                        reset_stock_to_zero: editModal.data.reset_stock,
+                        reset_opening_balances: editModal.data.reset_opening_balances,
+                      });
+                      toast.success(`Transactional data for ${editModal.data.shop_name} reset successfully!`);
+                      setEditModal(null);
+                      fetchData();
+                    } catch (error: any) {
+                      toast.error(error.response?.data?.message || 'Failed to reset shop data');
+                    }
+                  }}
+                  className="btn btn-danger"
+                  style={{ flex: 1, padding: '12px', opacity: editModal.data.reset_confirm_input.trim() !== 'RESET' ? 0.5 : 1 }}
+                >
+                  Confirm Reset
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleUpdate} className="modal-body">
               {editModal.type === 'business' && (
                 <>
                   <div style={{ marginBottom: '16px' }}><label>Business Name</label><input value={editModal.data.name} onChange={e => setEditModal({...editModal, data: {...editModal.data, name: e.target.value}})} required /></div>
@@ -365,7 +457,23 @@ export default function AdminSettings() {
                 </>
               )}
               {editModal.type === 'shop' && (
-                <div style={{ marginBottom: '16px' }}><label>Shop Name</label><input value={editModal.data.name} onChange={e => setEditModal({...editModal, data: {...editModal.data, name: e.target.value}})} required /></div>
+                <>
+                  <div style={{ marginBottom: '16px' }}><label>Shop Name</label><input value={editModal.data.name} onChange={e => setEditModal({...editModal, data: {...editModal.data, name: e.target.value}})} required /></div>
+                  <div style={{ marginBottom: '16px', background: 'var(--bg-hover)', padding: '12px', borderRadius: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editModal.data.allow_data_reset)}
+                        onChange={e => setEditModal({ ...editModal, data: { ...editModal.data, allow_data_reset: e.target.checked } })}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      />
+                      <div>
+                        <span style={{ fontWeight: 600, display: 'block', fontSize: '13px' }}>Allow Client Data Reset</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Enables "Reset Practice / Financial Year Data" card in client Settings page</span>
+                      </div>
+                    </label>
+                  </div>
+                </>
               )}
               {editModal.type === 'user' && (
                 <>
@@ -376,6 +484,7 @@ export default function AdminSettings() {
               )}
               <button type="submit" className="btn btn-primary" style={{ padding: '14px', marginTop: '16px', width: '100%' }}>Save Changes</button>
             </form>
+          )}
         </Modal>
       )}
 
