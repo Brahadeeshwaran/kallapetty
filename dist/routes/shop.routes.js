@@ -47,4 +47,5 @@ router.post('/', authMiddleware_1.requireBusinessOwner, shop_controller_1.create
 router.get('/', shop_controller_1.getShops);
 router.put('/:id', authMiddleware_1.requireBusinessOwner, shop_controller_1.updateShop);
 router.post('/:id/pay', authMiddleware_1.superadminOnly, shop_controller_1.markShopPaid);
+router.post('/:id/reset-data', authMiddleware_1.requireBusinessOwner, shop_controller_1.resetShopData);
 exports.default = router;

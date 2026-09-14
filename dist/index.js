@@ -112,6 +112,21 @@ app.listen(port, async () => {
         await (0, db_1.default) `ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_receive';`;
         await (0, db_1.default) `ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(12, 2) DEFAULT 0;`;
         await (0, db_1.default) `ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_pay';`;
+        await (0, db_1.default) `ALTER TABLE shops ADD COLUMN IF NOT EXISTS custom_column_definitions JSONB DEFAULT '[]'::jsonb;`;
+        await (0, db_1.default) `ALTER TABLE products ADD COLUMN IF NOT EXISTS unit VARCHAR(50) DEFAULT 'Pcs';`;
+        await (0, db_1.default) `ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_attributes JSONB DEFAULT '{}'::jsonb;`;
+        await (0, db_1.default) `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(50);`;
+        await (0, db_1.default) `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS custom_inputs JSONB DEFAULT '{}'::jsonb;`;
+        await (0, db_1.default) `ALTER TABLE orders ADD COLUMN IF NOT EXISTS transport_name VARCHAR(255);`;
+        await (0, db_1.default) `ALTER TABLE orders ADD COLUMN IF NOT EXISTS lr_number VARCHAR(100);`;
+        await (0, db_1.default) `ALTER TABLE orders ADD COLUMN IF NOT EXISTS lr_date VARCHAR(50);`;
+        await (0, db_1.default) `ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_interstate BOOLEAN DEFAULT false;`;
+        await (0, db_1.default) `ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_prefix VARCHAR(50) DEFAULT '';`;
+        await (0, db_1.default) `ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_suffix VARCHAR(50) DEFAULT '';`;
+        await (0, db_1.default) `ALTER TABLE shops ADD COLUMN IF NOT EXISTS next_invoice_number INT DEFAULT 1;`;
+        await (0, db_1.default) `ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_padding INT DEFAULT 1;`;
+        await (0, db_1.default) `ALTER TABLE shops ADD COLUMN IF NOT EXISTS allow_data_reset BOOLEAN DEFAULT false;`;
+        await (0, db_1.default) `ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(100);`;
         logger_1.logger.info('[database]: Connected to PostgreSQL & custom pricing tables verified!');
     }
     catch (error) {

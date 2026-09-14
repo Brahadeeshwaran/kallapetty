@@ -99,4 +99,5 @@ router.get('/', order_controller_1.getOrders);
  */
 router.put('/:id/mark-paid', order_controller_1.markOrderPaid);
 router.put('/:id/delivery-status', order_controller_1.updateDeliveryStatus);
+router.put('/:id/transport', order_controller_1.updateTransportDetails);
 exports.default = router;

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateDeliveryStatus = exports.markOrderPaid = exports.getOrders = exports.createOrder = void 0;
+exports.updateTransportDetails = exports.updateDeliveryStatus = exports.markOrderPaid = exports.getOrders = exports.createOrder = void 0;
 const db_1 = __importDefault(require("../models/db"));
 const app_validator_1 = require("../validators/app.validator");
 const access_1 = require("../utils/access");
@@ -51,6 +51,22 @@ const createOrder = async (req, res, next) => {
         const status = data.amount_paid < 0.05 ? 'unpaid' : data.amount_paid >= totalToPay - 0.05 ? 'paid' : 'partial';
         const created_by = req.user?.id || null;
         const newOrder = await db_1.default.begin(async (tx) => {
+            let finalInvoiceNumber = data.invoice_number ? data.invoice_number.trim() : '';
+            if (!finalInvoiceNumber) {
+                // Fetch shop with lock to update next_invoice_number atomically
+                const shops = await tx `SELECT * FROM shops WHERE id = ${data.shop_id} FOR UPDATE`;
+                const shop = shops[0];
+                if (shop) {
+                    const prefix = shop.invoice_prefix || '';
+                    const suffix = shop.invoice_suffix || '';
+                    const num = shop.next_invoice_number || 1;
+                    const padding = shop.invoice_padding || 1;
+                    const formattedNum = String(num).padStart(padding, '0');
+                    finalInvoiceNumber = `${prefix}${formattedNum}${suffix}`;
+                    // Increment next_invoice_number
+                    await tx `UPDATE shops SET next_invoice_number = ${num + 1} WHERE id = ${data.shop_id}`;
+                }
+            }
             const orders = await tx `
         INSERT INTO orders ${tx({
                 shop_id: data.shop_id,
@@ -65,6 +81,11 @@ const createOrder = async (req, res, next) => {
                 delivery_address: data.delivery_address || null,
                 delivery_status: data.order_type === 'delivery' ? 'pending' : null,
                 delivery_notes: data.delivery_notes || null,
+                transport_name: data.transport_name || null,
+                lr_number: data.lr_number || null,
+                lr_date: data.lr_date || null,
+                is_interstate: data.is_interstate || false,
+                invoice_number: finalInvoiceNumber || null,
                 created_by,
             })}
         RETURNING *
@@ -78,6 +99,8 @@ const createOrder = async (req, res, next) => {
                     qty: item.qty,
                     price: item.price,
                     tax_amount: item.tax_amount,
+                    unit: item.unit || item.product.unit || 'Pcs',
+                    custom_inputs: item.custom_inputs || {},
                     created_by,
                 })}
         `;
@@ -171,6 +194,8 @@ const getOrders = async (req, res, next) => {
                   'qty', oi.qty,
                   'price', oi.price,
                   'tax_amount', oi.tax_amount,
+                  'unit', oi.unit,
+                  'custom_inputs', oi.custom_inputs,
                   'product', (SELECT row_to_json(p.*) FROM products p WHERE p.id = oi.product_id)
                 ))
                 FROM order_items oi WHERE oi.order_id = o.id
@@ -261,3 +286,26 @@ const updateDeliveryStatus = async (req, res, next) => {
     }
 };
 exports.updateDeliveryStatus = updateDeliveryStatus;
+const updateTransportDetails = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { transport_name, lr_number, lr_date, delivery_address, delivery_notes, is_interstate } = require('../validators/app.validator').updateTransportSchema.parse(req.body);
+        const order = await (0, access_1.assertOrderAccess)(req.user, id);
+        await (0, access_1.assertShopPermission)(req.user, order.shop_id, 'invoices:list');
+        const orders = await (0, db_1.default) `
+      UPDATE orders SET
+        transport_name = ${transport_name !== undefined ? transport_name : order.transport_name},
+        lr_number = ${lr_number !== undefined ? lr_number : order.lr_number},
+        lr_date = ${lr_date !== undefined ? lr_date : order.lr_date},
+        delivery_address = ${delivery_address !== undefined ? delivery_address : order.delivery_address},
+        delivery_notes = ${delivery_notes !== undefined ? delivery_notes : order.delivery_notes},
+        is_interstate = ${is_interstate !== undefined ? is_interstate : order.is_interstate}
+      WHERE id = ${id} RETURNING *
+    `;
+        res.json({ status: 'success', data: orders[0] });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.updateTransportDetails = updateTransportDetails;
