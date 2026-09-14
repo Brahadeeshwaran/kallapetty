@@ -12,8 +12,13 @@ export default function Deliveries() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('pending'); // 'pending', 'shipped', 'delivered'
+  const [statusFilter, setStatusFilter] = useState('all');
   const [viewOrder, setViewOrder] = useState<any>(null);
+
+  const [editingTransport, setEditingTransport] = useState(false);
+  const [editTransportName, setEditTransportName] = useState('');
+  const [editLrNumber, setEditLrNumber] = useState('');
+  const [editLrDate, setEditLrDate] = useState('');
 
   useEffect(() => {
     if (currentShop) fetchDeliveries();
@@ -235,6 +240,78 @@ export default function Deliveries() {
                 <span style={{ fontWeight: 600 }}>Delivery Notes: </span>{viewOrder.delivery_notes}
               </div>
             )}
+
+            <div style={{ marginBottom: '24px', background: 'var(--bg-hover)', padding: '16px', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: editingTransport ? '12px' : '0' }}>
+                <div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Transport Details</h4>
+                  {!editingTransport && (
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                      {viewOrder.transport_name ? (
+                        <><strong>{viewOrder.transport_name}</strong> | LR: {viewOrder.lr_number || '-'} | Date: {viewOrder.lr_date ? formatDate(viewOrder.lr_date) : '-'}</>
+                      ) : (
+                        'No transport details entered yet.'
+                      )}
+                    </p>
+                  )}
+                </div>
+                <button 
+                  onClick={() => {
+                    if (!editingTransport) {
+                      setEditTransportName(viewOrder.transport_name || '');
+                      setEditLrNumber(viewOrder.lr_number || '');
+                      setEditLrDate(viewOrder.lr_date || '');
+                    }
+                    setEditingTransport(!editingTransport);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '12px', padding: '4px 10px' }}
+                >
+                  {editingTransport ? 'Cancel' : viewOrder.transport_name ? 'Edit Transport' : '+ Add Transport'}
+                </button>
+              </div>
+
+              {editingTransport && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '8px', borderTop: '1px dashed var(--border-light)' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', marginBottom: '4px' }}>Transport Name</label>
+                    <input type="text" placeholder="e.g. Rajalakshmi Transport" value={editTransportName} onChange={e => setEditTransportName(e.target.value)} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', marginBottom: '4px' }}>LR No. / Docket No.</label>
+                      <input type="text" placeholder="e.g. 239" value={editLrNumber} onChange={e => setEditLrNumber(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', marginBottom: '4px' }}>LR Date</label>
+                      <input type="date" value={editLrDate} onChange={e => setEditLrDate(e.target.value)} />
+                    </div>
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const res = await api.put(`/orders/${viewOrder.id}/transport`, {
+                          transport_name: editTransportName,
+                          lr_number: editLrNumber,
+                          lr_date: editLrDate
+                        });
+                        toast.success('Transport details updated!');
+                        const updated = { ...viewOrder, ...res.data.data };
+                        setViewOrder(updated);
+                        setEditingTransport(false);
+                        fetchDeliveries();
+                      } catch (err: any) {
+                        toast.error(err.response?.data?.message || 'Failed to update transport details');
+                      }
+                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', marginTop: '4px', fontSize: '13px' }}
+                  >
+                    Save Transport Details
+                  </button>
+                </div>
+              )}
+            </div>
 
             <h4 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Items to Deliver</h4>
             <div className="table-container" style={{ border: '1px solid var(--border-light)', margin: 0, padding: 0 }}>

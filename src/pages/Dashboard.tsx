@@ -302,6 +302,7 @@ export default function Dashboard() {
                   <Tooltip 
                     contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: '8px' }}
                     itemStyle={{ color: 'var(--danger)' }}
+                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                   />
                   <Bar dataKey="Pending" fill="var(--danger)" radius={[4, 4, 0, 0]} />
                 </BarChart>

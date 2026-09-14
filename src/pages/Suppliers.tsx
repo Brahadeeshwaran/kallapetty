@@ -48,7 +48,9 @@ export default function Suppliers() {
           name: formModal.name,
           phone: formModal.phone,
           gst_number: formModal.gst_number,
-          address: formModal.address
+          address: formModal.address,
+          opening_balance: formModal.opening_balance ? parseFloat(formModal.opening_balance) : 0,
+          opening_balance_type: formModal.opening_balance_type || 'to_pay'
         });
         toast.success('Supplier added!');
       }
@@ -152,10 +154,31 @@ export default function Suppliers() {
           width="480px"
         >
           <form onSubmit={handleFormSubmit} className="modal-body">
-              <div style={{ marginBottom: '16px' }}><label>Name</label><input value={formModal.name} onChange={e => setFormModal({...formModal, name: e.target.value})} required /></div>
-              <div style={{ marginBottom: '16px' }}><label>Phone</label><input value={formModal.phone || ''} onChange={e => setFormModal({...formModal, phone: e.target.value})} /></div>
-              <div style={{ marginBottom: '16px' }}><label>GST Number</label><input value={formModal.gst_number || ''} onChange={e => setFormModal({...formModal, gst_number: e.target.value})} /></div>
-              <div style={{ marginBottom: '16px' }}><label>Address</label><input value={formModal.address || ''} onChange={e => setFormModal({...formModal, address: e.target.value})} /></div>
+              <div style={{ marginBottom: '16px' }}><label>Name <span style={{ color: 'var(--danger)' }}>*</span></label><input value={formModal.name} onChange={e => setFormModal({...formModal, name: e.target.value})} required /></div>
+              <div style={{ marginBottom: '16px' }}><label>Phone</label><input value={formModal.phone || ''} onChange={e => setFormModal({...formModal, phone: e.target.value})} placeholder="e.g. 9876543210" /></div>
+              <div style={{ marginBottom: '16px' }}><label>GST Number</label><input value={formModal.gst_number || ''} onChange={e => setFormModal({...formModal, gst_number: e.target.value.toUpperCase()})} placeholder="e.g. 33AAAAA0000A1Z5" /></div>
+              
+              {!formModal.id && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>Opening Balance (₹)</label>
+                    <input type="number" step="0.01" value={formModal.opening_balance || ''} onChange={e => setFormModal({...formModal, opening_balance: e.target.value})} placeholder="0.00" />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>Balance Type</label>
+                    <select 
+                      value={formModal.opening_balance_type || 'to_pay'} 
+                      onChange={e => setFormModal({...formModal, opening_balance_type: e.target.value})}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-light)', background: 'var(--bg-app)', color: 'var(--text-primary)', fontSize: '14px' }}
+                    >
+                      <option value="to_pay">To Pay (You owe supplier)</option>
+                      <option value="to_receive">To Receive (Supplier owes you / Advance)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginBottom: '16px' }}><label>Address</label><input value={formModal.address || ''} onChange={e => setFormModal({...formModal, address: e.target.value})} placeholder="Street, City, Pincode" /></div>
               <button type="submit" className="btn btn-primary" style={{ padding: '14px', marginTop: '16px', width: '100%' }}>{formModal.id ? "Save Changes" : "Create Supplier"}</button>
           </form>
         </Modal>

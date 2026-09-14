@@ -17,6 +17,14 @@ export default function Invoices() {
   const [customPrintCopy, setCustomPrintCopy] = useState('');
   const [viewOrder, setViewOrder] = useState<any>(null);
 
+  const [editingTransport, setEditingTransport] = useState(false);
+  const [editTransportName, setEditTransportName] = useState('');
+  const [editLrNumber, setEditLrNumber] = useState('');
+  const [editLrDate, setEditLrDate] = useState('');
+  const [editDeliveryAddress, setEditDeliveryAddress] = useState('');
+  const [editDeliveryNotes, setEditDeliveryNotes] = useState('');
+  const [editIsInterstate, setEditIsInterstate] = useState(false);
+
   useEffect(() => {
     if (currentShop) fetchOrders();
   }, [currentShop]);
@@ -85,7 +93,7 @@ export default function Invoices() {
               ) : filteredOrders.map(order => (
                 <tr key={order.id}>
                   <td data-label="Bill No" style={{ fontFamily: 'monospace', fontWeight: 500, fontSize: '13px' }}>
-                    {order.id.split('-')[0].toUpperCase()}
+                    {order.invoice_number || order.id.split('-')[0].toUpperCase()}
                   </td>
                   <td data-label="Date">{formatDate(order.created_at)}</td>
                   <td data-label="Customer">
@@ -182,7 +190,7 @@ export default function Invoices() {
 
       {viewOrder && (
         <Modal
-          title={`Bill Details - ${viewOrder.id.split('-')[0].toUpperCase()}`}
+          title={`Bill Details - ${viewOrder.invoice_number || viewOrder.id.split('-')[0].toUpperCase()}`}
           onClose={() => setViewOrder(null)}
           width="600px"
         >
@@ -211,6 +219,109 @@ export default function Invoices() {
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Order Type</p>
                 <p style={{ fontWeight: 500, fontSize: '14px', textTransform: 'capitalize' }}>{viewOrder.order_type}</p>
               </div>
+            </div>
+
+            <div style={{ marginBottom: '24px', background: 'var(--bg-hover)', padding: '16px', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: editingTransport ? '12px' : '0' }}>
+                <div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Transport Details</h4>
+                  {!editingTransport && (
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                      {viewOrder.transport_name ? (
+                        <><strong>{viewOrder.transport_name}</strong> | LR: {viewOrder.lr_number || '-'} | Date: {viewOrder.lr_date ? formatDate(viewOrder.lr_date) : '-'}</>
+                      ) : (
+                        'No transport details entered yet.'
+                      )}
+                    </p>
+                  )}
+                </div>
+                <button 
+                  onClick={() => {
+                    if (!editingTransport) {
+                      setEditTransportName(viewOrder.transport_name || '');
+                      setEditLrNumber(viewOrder.lr_number || '');
+                      setEditLrDate(viewOrder.lr_date || '');
+                      setEditDeliveryAddress(viewOrder.delivery_address || '');
+                      setEditDeliveryNotes(viewOrder.delivery_notes || '');
+                      setEditIsInterstate(Boolean(viewOrder.is_interstate));
+                    }
+                    setEditingTransport(!editingTransport);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '12px', padding: '4px 10px' }}
+                >
+                  {editingTransport ? 'Cancel' : (viewOrder.transport_name || viewOrder.delivery_address) ? 'Edit Shipping & Transport' : '+ Add Shipping & Transport'}
+                </button>
+              </div>
+
+              {editingTransport && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '8px', borderTop: '1px dashed var(--border-light)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+                    <input 
+                      type="checkbox" 
+                      id="editInterstate" 
+                      checked={editIsInterstate} 
+                      onChange={e => setEditIsInterstate(e.target.checked)} 
+                      style={{ width: 'auto', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="editInterstate" style={{ margin: 0, cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                      Apply IGST (Out of State Sale)
+                    </label>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', marginBottom: '4px' }}>Delivery / Dispatch Address</label>
+                    <textarea 
+                      placeholder="Enter delivery address (e.g., Door No, Street, City, State)" 
+                      value={editDeliveryAddress} 
+                      onChange={e => setEditDeliveryAddress(e.target.value)} 
+                      style={{ minHeight: '50px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', marginBottom: '4px' }}>Transport Name</label>
+                    <input type="text" placeholder="e.g. Rajalakshmi Transport" value={editTransportName} onChange={e => setEditTransportName(e.target.value)} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', marginBottom: '4px' }}>LR No. / Docket No.</label>
+                      <input type="text" placeholder="e.g. 239" value={editLrNumber} onChange={e => setEditLrNumber(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', marginBottom: '4px' }}>LR Date</label>
+                      <input type="date" value={editLrDate} onChange={e => setEditLrDate(e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', marginBottom: '4px' }}>Notes / Instructions</label>
+                    <input type="text" placeholder="e.g. Handle with care, Inter-state parcel" value={editDeliveryNotes} onChange={e => setEditDeliveryNotes(e.target.value)} />
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const res = await api.put(`/orders/${viewOrder.id}/transport`, {
+                          transport_name: editTransportName,
+                          lr_number: editLrNumber,
+                          lr_date: editLrDate,
+                          delivery_address: editDeliveryAddress,
+                          delivery_notes: editDeliveryNotes,
+                          is_interstate: editIsInterstate
+                        });
+                        toast.success('Shipping & Transport details updated!');
+                        const updated = { ...viewOrder, ...res.data.data };
+                        setViewOrder(updated);
+                        setEditingTransport(false);
+                        fetchOrders();
+                      } catch (err: any) {
+                        toast.error(err.response?.data?.message || 'Failed to update shipping details');
+                      }
+                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', marginTop: '4px', fontSize: '13px' }}
+                  >
+                    Save Shipping & Transport Details
+                  </button>
+                </div>
+              )}
             </div>
 
             <h4 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Items Purchased</h4>
