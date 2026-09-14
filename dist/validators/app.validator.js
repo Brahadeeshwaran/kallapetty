@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.payPurchaseOrderSchema = exports.receivePurchaseOrderSchema = exports.createPurchaseOrderSchema = exports.createSupplierPaymentSchema = exports.createPurchaseInvoiceSchema = exports.updateSupplierSchema = exports.createSupplierSchema = exports.updateDeliveryStatusSchema = exports.createExpenseSchema = exports.createPaymentSchema = exports.createOrderSchema = exports.updateProductSchema = exports.updateShopSchema = exports.updateBusinessSchema = exports.createProductSchema = exports.updateCustomerSchema = exports.createCustomerSchema = exports.createShopSchema = exports.createBusinessSchema = void 0;
+exports.payPurchaseOrderSchema = exports.receivePurchaseOrderSchema = exports.createPurchaseOrderSchema = exports.createSupplierPaymentSchema = exports.createPurchaseInvoiceSchema = exports.updateSupplierSchema = exports.createSupplierSchema = exports.updateTransportSchema = exports.updateDeliveryStatusSchema = exports.createExpenseSchema = exports.createPaymentSchema = exports.createOrderSchema = exports.updateProductSchema = exports.resetShopDataSchema = exports.updateShopSchema = exports.updateBusinessSchema = exports.createProductSchema = exports.updateCustomerSchema = exports.createCustomerSchema = exports.createShopSchema = exports.createBusinessSchema = void 0;
 const zod_1 = require("zod");
 exports.createBusinessSchema = zod_1.z.object({
     name: zod_1.z.string().min(3),
@@ -43,6 +43,8 @@ exports.createProductSchema = zod_1.z.object({
     is_service: zod_1.z.boolean().default(false),
     tax_rate: zod_1.z.number().nonnegative().default(0),
     tax_type: zod_1.z.enum(['flat', 'gst']).default('flat'),
+    unit: zod_1.z.string().optional().default('Pcs'),
+    custom_attributes: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional().default({}),
 });
 exports.updateBusinessSchema = zod_1.z.object({
     name: zod_1.z.string().min(3).optional(),
@@ -56,7 +58,25 @@ exports.updateBusinessSchema = zod_1.z.object({
     invoice_format: zod_1.z.enum(['thermal', 'a4']).optional(),
 });
 exports.updateShopSchema = zod_1.z.object({
-    name: zod_1.z.string().min(3),
+    name: zod_1.z.string().min(3).optional(),
+    invoice_prefix: zod_1.z.string().optional(),
+    invoice_suffix: zod_1.z.string().optional(),
+    next_invoice_number: zod_1.z.number().int().positive().optional(),
+    invoice_padding: zod_1.z.number().int().min(1).max(10).optional(),
+    allow_data_reset: zod_1.z.boolean().optional(),
+    custom_column_definitions: zod_1.z.array(zod_1.z.object({
+        id: zod_1.z.string(),
+        name: zod_1.z.string(),
+        scope: zod_1.z.enum(['product', 'pos', 'system']),
+        align: zod_1.z.string().optional(),
+        show_on_invoice: zod_1.z.boolean().default(true),
+        default_value: zod_1.z.string().optional(),
+    })).optional(),
+});
+exports.resetShopDataSchema = zod_1.z.object({
+    confirmation: zod_1.z.literal('RESET'),
+    reset_stock_to_zero: zod_1.z.boolean().optional().default(false),
+    reset_opening_balances: zod_1.z.boolean().optional().default(false),
 });
 exports.updateProductSchema = zod_1.z.object({
     name: zod_1.z.string().min(3).optional(),
@@ -65,6 +85,8 @@ exports.updateProductSchema = zod_1.z.object({
     stock: zod_1.z.number().int().nonnegative().optional(),
     tax_rate: zod_1.z.number().nonnegative().optional(),
     tax_type: zod_1.z.enum(['flat', 'gst']).optional(),
+    unit: zod_1.z.string().optional(),
+    custom_attributes: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional(),
 });
 exports.createOrderSchema = zod_1.z.object({
     shop_id: zod_1.z.string().uuid(),
@@ -79,11 +101,18 @@ exports.createOrderSchema = zod_1.z.object({
     expected_delivery: zod_1.z.string().datetime().optional(),
     delivery_address: zod_1.z.string().optional(),
     delivery_notes: zod_1.z.string().optional(),
+    transport_name: zod_1.z.string().optional(),
+    lr_number: zod_1.z.string().optional(),
+    lr_date: zod_1.z.string().optional(),
+    is_interstate: zod_1.z.boolean().optional(),
+    invoice_number: zod_1.z.string().optional(),
     items: zod_1.z.array(zod_1.z.object({
         product_id: zod_1.z.string().uuid(),
-        qty: zod_1.z.number().int().positive(),
+        qty: zod_1.z.number().positive(),
         price: zod_1.z.number().nonnegative().optional(),
         tax_amount: zod_1.z.number().nonnegative().optional(),
+        unit: zod_1.z.string().optional(),
+        custom_inputs: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional(),
     })).min(1),
 });
 exports.createPaymentSchema = zod_1.z.object({
@@ -100,6 +129,14 @@ exports.createExpenseSchema = zod_1.z.object({
 exports.updateDeliveryStatusSchema = zod_1.z.object({
     delivery_status: zod_1.z.enum(['pending', 'shipped', 'delivered', 'cancelled']),
     delivery_notes: zod_1.z.string().optional(),
+});
+exports.updateTransportSchema = zod_1.z.object({
+    transport_name: zod_1.z.string().optional(),
+    lr_number: zod_1.z.string().optional(),
+    lr_date: zod_1.z.string().optional(),
+    delivery_address: zod_1.z.string().optional(),
+    delivery_notes: zod_1.z.string().optional(),
+    is_interstate: zod_1.z.boolean().optional(),
 });
 exports.createSupplierSchema = zod_1.z.object({
     name: zod_1.z.string().min(3),
