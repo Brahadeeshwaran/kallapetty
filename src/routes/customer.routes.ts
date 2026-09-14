@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createCustomer, getCustomers, getCustomerPrices } from '../controllers/customer.controller';
+import { createCustomer, getCustomers, updateCustomer, getCustomerPrices } from '../controllers/customer.controller';
 import { protect } from '../middlewares/authMiddleware';
 
 const router = Router();
@@ -14,6 +14,8 @@ router.use(protect);
  */
 
 router.get('/:id/prices', getCustomerPrices);
+
+router.put('/:id', updateCustomer);
 
 /**
  * @swagger

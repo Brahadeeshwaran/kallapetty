@@ -51,6 +51,25 @@ export const createOrder = async (req: AuthRequest, res: Response, next: NextFun
     const created_by = req.user?.id || null;
 
     const newOrder = await sql.begin(async (tx) => {
+      let finalInvoiceNumber = data.invoice_number ? data.invoice_number.trim() : '';
+
+      if (!finalInvoiceNumber) {
+        // Fetch shop with lock to update next_invoice_number atomically
+        const shops = await tx<any[]>`SELECT * FROM shops WHERE id = ${data.shop_id} FOR UPDATE`;
+        const shop = shops[0];
+        if (shop) {
+          const prefix = shop.invoice_prefix || '';
+          const suffix = shop.invoice_suffix || '';
+          const num = shop.next_invoice_number || 1;
+          const padding = shop.invoice_padding || 1;
+          const formattedNum = String(num).padStart(padding, '0');
+          finalInvoiceNumber = `${prefix}${formattedNum}${suffix}`;
+
+          // Increment next_invoice_number
+          await tx`UPDATE shops SET next_invoice_number = ${num + 1} WHERE id = ${data.shop_id}`;
+        }
+      }
+
       const orders = await tx<Order[]>`
         INSERT INTO orders ${tx({
           shop_id: data.shop_id,
@@ -65,6 +84,11 @@ export const createOrder = async (req: AuthRequest, res: Response, next: NextFun
           delivery_address: data.delivery_address || null,
           delivery_status: data.order_type === 'delivery' ? 'pending' : null,
           delivery_notes: data.delivery_notes || null,
+          transport_name: data.transport_name || null,
+          lr_number: data.lr_number || null,
+          lr_date: data.lr_date || null,
+          is_interstate: data.is_interstate || false,
+          invoice_number: finalInvoiceNumber || null,
           created_by,
         })}
         RETURNING *
@@ -79,6 +103,8 @@ export const createOrder = async (req: AuthRequest, res: Response, next: NextFun
             qty: item.qty,
             price: item.price,
             tax_amount: item.tax_amount,
+            unit: item.unit || item.product.unit || 'Pcs',
+            custom_inputs: item.custom_inputs || {},
             created_by,
           })}
         `;
@@ -177,6 +203,8 @@ export const getOrders = async (req: AuthRequest, res: Response, next: NextFunct
                   'qty', oi.qty,
                   'price', oi.price,
                   'tax_amount', oi.tax_amount,
+                  'unit', oi.unit,
+                  'custom_inputs', oi.custom_inputs,
                   'product', (SELECT row_to_json(p.*) FROM products p WHERE p.id = oi.product_id)
                 ))
                 FROM order_items oi WHERE oi.order_id = o.id
@@ -263,6 +291,31 @@ export const updateDeliveryStatus = async (req: AuthRequest, res: Response, next
         delivery_status = ${delivery_status},
         delivery_notes = ${delivery_notes !== undefined ? delivery_notes : order.delivery_notes},
         delivered_at = ${delivered_at}
+      WHERE id = ${id} RETURNING *
+    `;
+
+    res.json({ status: 'success', data: orders[0] });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateTransportDetails = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { transport_name, lr_number, lr_date, delivery_address, delivery_notes, is_interstate } = require('../validators/app.validator').updateTransportSchema.parse(req.body);
+    
+    const order = await assertOrderAccess(req.user, id);
+    await assertShopPermission(req.user, order.shop_id, 'invoices:list');
+
+    const orders = await sql<Order[]>`
+      UPDATE orders SET
+        transport_name = ${transport_name !== undefined ? transport_name : order.transport_name},
+        lr_number = ${lr_number !== undefined ? lr_number : order.lr_number},
+        lr_date = ${lr_date !== undefined ? lr_date : order.lr_date},
+        delivery_address = ${delivery_address !== undefined ? delivery_address : order.delivery_address},
+        delivery_notes = ${delivery_notes !== undefined ? delivery_notes : order.delivery_notes},
+        is_interstate = ${is_interstate !== undefined ? is_interstate : order.is_interstate}
       WHERE id = ${id} RETURNING *
     `;
 

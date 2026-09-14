@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.payPurchaseOrderSchema = exports.receivePurchaseOrderSchema = exports.createPurchaseOrderSchema = exports.createSupplierPaymentSchema = exports.createPurchaseInvoiceSchema = exports.updateSupplierSchema = exports.createSupplierSchema = exports.updateDeliveryStatusSchema = exports.createExpenseSchema = exports.createPaymentSchema = exports.createOrderSchema = exports.updateProductSchema = exports.updateShopSchema = exports.updateBusinessSchema = exports.createProductSchema = exports.createCustomerSchema = exports.createShopSchema = exports.createBusinessSchema = void 0;
+exports.payPurchaseOrderSchema = exports.receivePurchaseOrderSchema = exports.createPurchaseOrderSchema = exports.createSupplierPaymentSchema = exports.createPurchaseInvoiceSchema = exports.updateSupplierSchema = exports.createSupplierSchema = exports.updateDeliveryStatusSchema = exports.createExpenseSchema = exports.createPaymentSchema = exports.createOrderSchema = exports.updateProductSchema = exports.updateShopSchema = exports.updateBusinessSchema = exports.createProductSchema = exports.updateCustomerSchema = exports.createCustomerSchema = exports.createShopSchema = exports.createBusinessSchema = void 0;
 const zod_1 = require("zod");
 exports.createBusinessSchema = zod_1.z.object({
     name: zod_1.z.string().min(3),
@@ -21,6 +21,18 @@ exports.createShopSchema = zod_1.z.object({
 exports.createCustomerSchema = zod_1.z.object({
     name: zod_1.z.string().min(3),
     phone: zod_1.z.string().optional(),
+    address: zod_1.z.string().optional(),
+    gst_number: zod_1.z.string().optional(),
+    opening_balance: zod_1.z.number().nonnegative().optional().default(0),
+    opening_balance_type: zod_1.z.enum(['to_receive', 'to_pay']).optional().default('to_receive'),
+});
+exports.updateCustomerSchema = zod_1.z.object({
+    name: zod_1.z.string().min(3).optional(),
+    phone: zod_1.z.string().optional(),
+    address: zod_1.z.string().optional(),
+    gst_number: zod_1.z.string().optional(),
+    opening_balance: zod_1.z.number().nonnegative().optional(),
+    opening_balance_type: zod_1.z.enum(['to_receive', 'to_pay']).optional(),
 });
 exports.createProductSchema = zod_1.z.object({
     shop_id: zod_1.z.string().uuid(),
@@ -94,6 +106,8 @@ exports.createSupplierSchema = zod_1.z.object({
     phone: zod_1.z.string().optional(),
     gst_number: zod_1.z.string().optional(),
     address: zod_1.z.string().optional(),
+    opening_balance: zod_1.z.number().nonnegative().optional().default(0),
+    opening_balance_type: zod_1.z.enum(['to_pay', 'to_receive']).optional().default('to_pay'),
 });
 exports.updateSupplierSchema = zod_1.z.object({
     name: zod_1.z.string().min(3).optional(),

@@ -8,9 +8,13 @@ export const createSupplier = async (req: AuthRequest, res: Response, next: Next
   try {
     const data = createSupplierSchema.parse(req.body);
     const created_by = req.user?.id || null;
+    const openingBal = data.opening_balance || 0;
+    const initialOutstanding = data.opening_balance_type === 'to_receive' ? -openingBal : openingBal;
+
     const suppliers = await sql<Supplier[]>`
       INSERT INTO suppliers ${sql({
         ...data,
+        outstanding_balance: initialOutstanding,
         business_id: req.user!.business_id,
         created_by,
       })}

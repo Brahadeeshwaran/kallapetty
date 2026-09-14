@@ -111,6 +111,26 @@ app.listen(port, async () => {
         CONSTRAINT unique_supplier_product UNIQUE (supplier_id, product_id)
       );
     `;
+    await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;`;
+    await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS gst_number VARCHAR(50);`;
+    await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(10, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_receive';`;
+    await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(12, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_pay';`;
+    await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS custom_column_definitions JSONB DEFAULT '[]'::jsonb;`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS unit VARCHAR(50) DEFAULT 'Pcs';`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_attributes JSONB DEFAULT '{}'::jsonb;`;
+    await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(50);`;
+    await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS custom_inputs JSONB DEFAULT '{}'::jsonb;`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS transport_name VARCHAR(255);`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS lr_number VARCHAR(100);`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS lr_date VARCHAR(50);`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_interstate BOOLEAN DEFAULT false;`;
+    await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_prefix VARCHAR(50) DEFAULT '';`;
+    await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_suffix VARCHAR(50) DEFAULT '';`;
+    await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS next_invoice_number INT DEFAULT 1;`;
+    await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_padding INT DEFAULT 1;`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(100);`;
     logger.info('[database]: Connected to PostgreSQL & custom pricing tables verified!');
   } catch (error) {
     logger.error('[database]: Failed to connect to PostgreSQL:', error);

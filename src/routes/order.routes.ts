@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createOrder, getOrders, markOrderPaid, updateDeliveryStatus } from '../controllers/order.controller';
+import { createOrder, getOrders, markOrderPaid, updateDeliveryStatus, updateTransportDetails } from '../controllers/order.controller';
 import { protect } from '../middlewares/authMiddleware';
 
 const router = Router();
@@ -102,5 +102,6 @@ router.get('/', getOrders);
  */
 router.put('/:id/mark-paid', markOrderPaid);
 router.put('/:id/delivery-status', updateDeliveryStatus);
+router.put('/:id/transport', updateTransportDetails);
 
 export default router;

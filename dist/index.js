@@ -106,6 +106,12 @@ app.listen(port, async () => {
         CONSTRAINT unique_supplier_product UNIQUE (supplier_id, product_id)
       );
     `;
+        await (0, db_1.default) `ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;`;
+        await (0, db_1.default) `ALTER TABLE customers ADD COLUMN IF NOT EXISTS gst_number VARCHAR(50);`;
+        await (0, db_1.default) `ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(10, 2) DEFAULT 0;`;
+        await (0, db_1.default) `ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_receive';`;
+        await (0, db_1.default) `ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(12, 2) DEFAULT 0;`;
+        await (0, db_1.default) `ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_pay';`;
         logger_1.logger.info('[database]: Connected to PostgreSQL & custom pricing tables verified!');
     }
     catch (error) {
