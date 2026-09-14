@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createShop, getShops, updateShop, markShopPaid } from '../controllers/shop.controller';
+import { createShop, getShops, updateShop, markShopPaid, resetShopData } from '../controllers/shop.controller';
 import { protect, requireBusinessOwner, superadminOnly } from '../middlewares/authMiddleware';
 
 const router = Router();
@@ -49,5 +49,6 @@ router.post('/', requireBusinessOwner, createShop);
 router.get('/', getShops);
 router.put('/:id', requireBusinessOwner, updateShop);
 router.post('/:id/pay', superadminOnly, markShopPaid);
+router.post('/:id/reset-data', requireBusinessOwner, resetShopData);
 
 export default router;

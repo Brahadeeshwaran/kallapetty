@@ -44,6 +44,7 @@ export interface Shop {
   invoice_suffix?: string;
   next_invoice_number?: number;
   invoice_padding?: number;
+  allow_data_reset?: boolean;
   created_at: Date;
   updated_at: Date | null;
   deleted_at: Date | null;

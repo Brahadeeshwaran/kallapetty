@@ -130,6 +130,7 @@ app.listen(port, async () => {
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_suffix VARCHAR(50) DEFAULT '';`;
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS next_invoice_number INT DEFAULT 1;`;
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_padding INT DEFAULT 1;`;
+    await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS allow_data_reset BOOLEAN DEFAULT false;`;
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(100);`;
     logger.info('[database]: Connected to PostgreSQL & custom pricing tables verified!');
   } catch (error) {
