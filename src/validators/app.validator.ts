@@ -45,6 +45,8 @@ export const createProductSchema = z.object({
   is_service: z.boolean().default(false),
   tax_rate: z.number().nonnegative().default(0),
   tax_type: z.enum(['flat', 'gst']).default('flat'),
+  unit: z.string().optional().default('Pcs'),
+  custom_attributes: z.record(z.string(), z.any()).optional().default({}),
 });
 
 export const updateBusinessSchema = z.object({
@@ -60,7 +62,19 @@ export const updateBusinessSchema = z.object({
 });
 
 export const updateShopSchema = z.object({
-  name: z.string().min(3),
+  name: z.string().min(3).optional(),
+  invoice_prefix: z.string().optional(),
+  invoice_suffix: z.string().optional(),
+  next_invoice_number: z.number().int().positive().optional(),
+  invoice_padding: z.number().int().min(1).max(10).optional(),
+  custom_column_definitions: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    scope: z.enum(['product', 'pos', 'system']),
+    align: z.string().optional(),
+    show_on_invoice: z.boolean().default(true),
+    default_value: z.string().optional(),
+  })).optional(),
 });
 
 export const updateProductSchema = z.object({
@@ -70,6 +84,8 @@ export const updateProductSchema = z.object({
   stock: z.number().int().nonnegative().optional(),
   tax_rate: z.number().nonnegative().optional(),
   tax_type: z.enum(['flat', 'gst']).optional(),
+  unit: z.string().optional(),
+  custom_attributes: z.record(z.string(), z.any()).optional(),
 });
 
 export const createOrderSchema = z.object({
@@ -85,11 +101,18 @@ export const createOrderSchema = z.object({
   expected_delivery: z.string().datetime().optional(),
   delivery_address: z.string().optional(),
   delivery_notes: z.string().optional(),
+  transport_name: z.string().optional(),
+  lr_number: z.string().optional(),
+  lr_date: z.string().optional(),
+  is_interstate: z.boolean().optional(),
+  invoice_number: z.string().optional(),
   items: z.array(z.object({
     product_id: z.string().uuid(),
-    qty: z.number().int().positive(),
+    qty: z.number().positive(),
     price: z.number().nonnegative().optional(),
     tax_amount: z.number().nonnegative().optional(),
+    unit: z.string().optional(),
+    custom_inputs: z.record(z.string(), z.any()).optional(),
   })).min(1),
 });
 
@@ -109,6 +132,15 @@ export const createExpenseSchema = z.object({
 export const updateDeliveryStatusSchema = z.object({
   delivery_status: z.enum(['pending', 'shipped', 'delivered', 'cancelled']),
   delivery_notes: z.string().optional(),
+});
+
+export const updateTransportSchema = z.object({
+  transport_name: z.string().optional(),
+  lr_number: z.string().optional(),
+  lr_date: z.string().optional(),
+  delivery_address: z.string().optional(),
+  delivery_notes: z.string().optional(),
+  is_interstate: z.boolean().optional(),
 });
 
 export const createSupplierSchema = z.object({

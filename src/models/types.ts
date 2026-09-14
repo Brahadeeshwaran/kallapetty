@@ -40,6 +40,10 @@ export interface Shop {
   subscription_end_date: Date | null;
   last_paid_date: Date | null;
   is_active: boolean;
+  invoice_prefix?: string;
+  invoice_suffix?: string;
+  next_invoice_number?: number;
+  invoice_padding?: number;
   created_at: Date;
   updated_at: Date | null;
   deleted_at: Date | null;
@@ -126,6 +130,11 @@ export interface Order {
   delivery_status: string | null;
   delivery_notes: string | null;
   delivered_at: Date | null;
+  transport_name?: string | null;
+  lr_number?: string | null;
+  lr_date?: string | null;
+  is_interstate?: boolean;
+  invoice_number?: string | null;
   created_at: Date;
   updated_at: Date | null;
   deleted_at: Date | null;
