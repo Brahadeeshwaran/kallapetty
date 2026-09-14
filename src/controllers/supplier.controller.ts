@@ -88,6 +88,40 @@ export const addSupplierPayment = async (req: AuthRequest, res: Response, next: 
         UPDATE suppliers SET outstanding_balance = outstanding_balance - ${data.amount_paid}
         WHERE id = ${id} AND business_id = ${req.user!.business_id}
       `;
+
+      let remainingPayment = Number(data.amount_paid);
+
+      if (remainingPayment > 0) {
+        const pendingPOs = await tx<any[]>`
+          SELECT * FROM purchase_orders
+          WHERE supplier_id = ${id}
+          AND shop_id = ${shop_id as string}
+          AND status IN ('pending', 'partial')
+          ORDER BY created_at ASC
+          FOR UPDATE
+        `;
+
+        for (const po of pendingPOs) {
+          const total = Number(po.total_amount || 0);
+          const paid = Number(po.amount_paid || 0);
+          const balance = total - paid;
+
+          if (balance <= 0) continue;
+
+          const payForPO = Math.min(remainingPayment, balance);
+          const newAmountPaid = paid + payForPO;
+          const newStatus = newAmountPaid >= total - 0.01 ? 'completed' : 'partial';
+
+          await tx`
+            UPDATE purchase_orders
+            SET amount_paid = ${newAmountPaid}, status = ${newStatus}
+            WHERE id = ${po.id}
+          `;
+
+          remainingPayment -= payForPO;
+          if (remainingPayment <= 0.001) break;
+        }
+      }
       
       return pmt[0];
     });
