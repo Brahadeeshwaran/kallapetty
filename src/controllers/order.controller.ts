@@ -286,15 +286,56 @@ export const updateDeliveryStatus = async (req: AuthRequest, res: Response, next
       delivered_at = new Date();
     }
 
-    const orders = await sql<Order[]>`
-      UPDATE orders SET
-        delivery_status = ${delivery_status},
-        delivery_notes = ${delivery_notes !== undefined ? delivery_notes : order.delivery_notes},
-        delivered_at = ${delivered_at}
-      WHERE id = ${id} RETURNING *
-    `;
+    const updatedOrder = await sql.begin(async (tx) => {
+      // If delivery is being cancelled for the first time, restore product stock
+      if (delivery_status === 'cancelled' && order.delivery_status !== 'cancelled') {
+        const orderItems = await tx<any[]>`
+          SELECT oi.*, p.is_service 
+          FROM order_items oi
+          JOIN products p ON p.id = oi.product_id
+          WHERE oi.order_id = ${id}
+        `;
 
-    res.json({ status: 'success', data: orders[0] });
+        for (const item of orderItems) {
+          if (!item.is_service) {
+            const productRes = await tx<any[]>`
+              UPDATE products SET stock = stock + ${item.qty}
+              WHERE id = ${item.product_id}
+              RETURNING stock
+            `;
+
+            if (productRes.length > 0) {
+              const newStock = productRes[0].stock;
+              const oldStock = newStock - item.qty;
+              await tx`
+                INSERT INTO product_stock_logs ${tx({
+                  product_id: item.product_id,
+                  shop_id: order.shop_id,
+                  change_type: 'delivery_cancellation',
+                  qty_change: item.qty,
+                  old_stock: oldStock,
+                  new_stock: newStock,
+                  reference_id: order.id,
+                  created_by: req.user?.id || null,
+                })}
+              `;
+            }
+          }
+        }
+      }
+
+      const orders = await tx<Order[]>`
+        UPDATE orders SET
+          delivery_status = ${delivery_status},
+          delivery_notes = ${delivery_notes !== undefined ? delivery_notes : order.delivery_notes},
+          delivered_at = ${delivered_at}
+        WHERE id = ${id} RETURNING *
+      `;
+
+      return orders[0];
+    });
+
+    res.json({ status: 'success', data: updatedOrder });
   } catch (error) {
     next(error);
   }

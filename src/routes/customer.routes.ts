@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { createCustomer, getCustomers, updateCustomer, getCustomerPrices } from '../controllers/customer.controller';
+import { createCustomer, getCustomers, updateCustomer, getCustomerPrices, exportCustomers, importCustomers, deleteCustomer } from '../controllers/customer.controller';
 import { protect } from '../middlewares/authMiddleware';
+import { upload } from '../middlewares/upload';
 
 const router = Router();
 
@@ -13,9 +14,13 @@ router.use(protect);
  *   description: Customer Management
  */
 
+router.get('/export', exportCustomers);
+router.post('/import', upload.single('file'), importCustomers);
+
 router.get('/:id/prices', getCustomerPrices);
 
 router.put('/:id', updateCustomer);
+router.delete('/:id', deleteCustomer);
 
 /**
  * @swagger
