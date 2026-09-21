@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS shops (
   next_invoice_number INT DEFAULT 1,
   invoice_padding INT DEFAULT 1,
   allow_data_reset BOOLEAN DEFAULT false,
+  allow_service_products BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP,
   deleted_at TIMESTAMP,

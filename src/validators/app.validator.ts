@@ -16,6 +16,7 @@ export const createBusinessSchema = z.object({
 export const createShopSchema = z.object({
   name: z.string().min(3),
   business_id: z.string().uuid().optional(),
+  allow_service_products: z.boolean().optional(),
 });
 
 export const createCustomerSchema = z.object({
@@ -68,6 +69,7 @@ export const updateShopSchema = z.object({
   next_invoice_number: z.number().int().positive().optional(),
   invoice_padding: z.number().int().min(1).max(10).optional(),
   allow_data_reset: z.boolean().optional(),
+  allow_service_products: z.boolean().optional(),
   custom_column_definitions: z.array(z.object({
     id: z.string(),
     name: z.string(),

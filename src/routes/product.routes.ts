@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { createProduct, getProducts, getProductByBarcode, updateProduct, deleteProduct, getProductStockLogs } from '../controllers/product.controller';
+import { createProduct, getProducts, getProductByBarcode, updateProduct, deleteProduct, getProductStockLogs, exportProducts, importProducts } from '../controllers/product.controller';
 import { protect } from '../middlewares/authMiddleware';
+import { upload } from '../middlewares/upload';
 
 const router = Router();
 router.use(protect);
@@ -74,6 +75,8 @@ router.post('/', createProduct);
  *         description: List of products
  */
 router.get('/', getProducts);
+router.get('/export', exportProducts);
+router.post('/import', upload.single('file'), importProducts);
 
 /**
  * @swagger

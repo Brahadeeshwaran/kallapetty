@@ -14,9 +14,10 @@ export const createShop = async (req: AuthRequest, res: Response, next: NextFunc
     }
 
     const created_by = req.user?.id || null;
+    const allow_service = data.allow_service_products || false;
     const shops = await sql<Shop[]>`
-      INSERT INTO shops (name, business_id, created_by)
-      VALUES (${data.name}, ${targetBusinessId}, ${created_by})
+      INSERT INTO shops (name, business_id, allow_service_products, created_by)
+      VALUES (${data.name}, ${targetBusinessId}, ${allow_service}, ${created_by})
       RETURNING *
     `;
     res.status(201).json({ status: 'success', data: shops[0] });
