@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Briefcase, IndianRupee, Edit, Plus } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Briefcase, IndianRupee, Edit, Plus, Download, Upload, Trash2 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -11,6 +11,8 @@ export default function Suppliers() {
   const { currentShop } = useAuth();
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Forms
   const [formModal, setFormModal] = useState<any>(null); // null when closed, object for Add/Edit
@@ -28,6 +30,43 @@ export default function Suppliers() {
       setSuppliers(res.data.data || []);
     } catch (error) { toast.error('Failed to load suppliers'); } 
     finally { setLoading(false); }
+  };
+
+  const handleExport = async () => {
+    try {
+      const res = await api.get('/suppliers/export', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'suppliers.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (error) {
+      toast.error('Failed to export suppliers');
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setIsSubmitting(true);
+    try {
+      const res = await api.post('/suppliers/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success(res.data.message || 'Import successful');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to import suppliers');
+    } finally {
+      setIsSubmitting(false);
+      if (e.target) e.target.value = '';
+    }
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -76,6 +115,17 @@ export default function Suppliers() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this supplier?')) return;
+    try {
+      await api.delete(`/suppliers/${id}`);
+      toast.success('Supplier deleted successfully!');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete supplier');
+    }
+  };
+
   return (
     <div>
       <header className="page-header">
@@ -83,10 +133,21 @@ export default function Suppliers() {
           <h1 className="page-title">Suppliers</h1>
           <p className="page-subtitle">Manage your vendors and their ledger balances</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setFormModal({ name: '', phone: '', gst_number: '', address: '' })} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Plus size={18} />
-          <span className="desktop-only">Add Supplier</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input type="file" accept=".xlsx, .xls" style={{ display: 'none' }} ref={fileInputRef} onChange={handleImport} />
+          <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }} disabled={isSubmitting}>
+            <Upload size={18} />
+            <span className="desktop-only">{isSubmitting ? 'Importing...' : 'Import'}</span>
+          </button>
+          <button className="btn btn-secondary" onClick={handleExport} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Download size={18} />
+            <span className="desktop-only">Download Template</span>
+          </button>
+          <button className="btn btn-primary" onClick={() => setFormModal({ name: '', phone: '', gst_number: '', address: '' })} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Plus size={18} />
+            <span className="desktop-only">Add Supplier</span>
+          </button>
+        </div>
       </header>
 
       <div className="table-container">
@@ -111,6 +172,7 @@ export default function Suppliers() {
                 </td>
                 <td data-label="Actions" style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
                   <button onClick={() => setFormModal(s)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px' }} title="Edit Supplier"><Edit size={16} color="var(--text-secondary)"/></button>
+                  <button onClick={() => handleDelete(s.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px' }} title="Delete Supplier"><Trash2 size={16} color="var(--danger)"/></button>
                   <button onClick={() => setPaymentModal({ supplier_id: s.id, amount: s.outstanding_balance || '', received_via: 'Bank' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <IndianRupee size={12} /> Make Payment
                   </button>

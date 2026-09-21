@@ -12,7 +12,7 @@ export default function Deliveries() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('pending');
   const [viewOrder, setViewOrder] = useState<any>(null);
 
   const [editingTransport, setEditingTransport] = useState(false);

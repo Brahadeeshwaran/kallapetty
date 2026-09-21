@@ -20,6 +20,7 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasPermission: (permissionId: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,6 +59,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         handleSetCurrentShop(null);
       }
     } catch(e) { console.error('Failed to load shops', e); }
+  };
+
+  const hasPermission = (permissionId: string) => {
+    if (!user) return false;
+    if (user.is_superadmin) return true;
+    if (user.is_business_owner) return true;
+    if (!currentShop) return false;
+    
+    const perms = user.shop_permissions?.[currentShop.id] || [];
+    return perms.includes(permissionId);
   };
 
   useEffect(() => {
@@ -116,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, shops, currentShop, setCurrentShop: handleSetCurrentShop, login, logout, isAuthenticated: !!user, isLoading }}>
+    <AuthContext.Provider value={{ user, shops, currentShop, setCurrentShop: handleSetCurrentShop, login, logout, isAuthenticated: !!user, isLoading, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );
