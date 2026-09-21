@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Trash2, Edit, History, Plus, Sliders } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Trash2, Edit, History, Plus, Sliders, Download, Upload } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +8,7 @@ import { selectStyles } from '../lib/utils';
 import Modal from '../components/Modal';
 
 export default function Inventory() {
-  const { currentShop } = useAuth();
+  const { currentShop, hasPermission } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,6 +18,8 @@ export default function Inventory() {
   const [historyModal, setHistoryModal] = useState<any>(null);
   const [stockLogs, setStockLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [customColumns, setCustomColumns] = useState<any[]>([]);
 
@@ -41,6 +43,44 @@ export default function Inventory() {
     } catch (error) { toast.error('Failed to load data'); } finally { setLoading(false); }
   };
 
+  const handleExport = async () => {
+    try {
+      const res = await api.get(`/products/export?shop_id=${currentShop.id}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'inventory.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (error) {
+      toast.error('Failed to export inventory');
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('shop_id', currentShop.id);
+
+    setIsSubmitting(true);
+    try {
+      const res = await api.post('/products/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success(res.data.message || 'Import successful');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to import inventory');
+    } finally {
+      setIsSubmitting(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentShop) return;
@@ -57,13 +97,15 @@ export default function Inventory() {
       };
 
       if (formModal.id) {
-        await api.put(`/products/${formModal.id}`, payload);
+        if (!hasPermission('inventory:edit')) return toast.error('Permission denied');
+        await api.put(`/products/${formModal.id}`, { ...payload, is_service: formModal.is_service });
         toast.success('Product updated!');
       } else {
+        if (!hasPermission('inventory:create')) return toast.error('Permission denied');
         await api.post('/products', {
           ...payload,
           shop_id: currentShop.id,
-          is_service: false
+          is_service: formModal.is_service || false
         });
         toast.success('Product added!');
       }
@@ -73,6 +115,7 @@ export default function Inventory() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!hasPermission('inventory:delete')) return toast.error('Permission denied');
     if (!window.confirm('Delete this product?')) return;
     try { await api.delete(`/products/${id}`); toast.success('Deleted'); fetchData(); }
     catch (error) { toast.error('Failed to delete'); }
@@ -113,6 +156,15 @@ export default function Inventory() {
           <p className="page-subtitle">Manage your product catalog</p>
         </div>
         <div className="flex-row gap-4">
+          <input type="file" accept=".xlsx, .xls" style={{ display: 'none' }} ref={fileInputRef} onChange={handleImport} />
+          <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }} disabled={isSubmitting}>
+            <Upload size={18} />
+            <span className="desktop-only">{isSubmitting ? 'Importing...' : 'Import'}</span>
+          </button>
+          <button className="btn btn-secondary" onClick={handleExport} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Download size={18} />
+            <span className="desktop-only">Download Template</span>
+          </button>
           <button className="btn btn-primary" onClick={() => setFormModal({ name: '', barcode: '', price: '', stock: '', tax_rate: '0', tax_type: 'flat' })} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Plus size={18} />
             <span className="desktop-only">Add Product</span>
@@ -124,8 +176,7 @@ export default function Inventory() {
         <table>
           <thead>
             <tr>
-              <th>Product Name</th>
-              <th>Barcode</th>
+              <th>Product</th>
               {customColumns.map((col: any) => (
                 <th key={col.id}>{col.name}</th>
               ))}
@@ -136,12 +187,15 @@ export default function Inventory() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (<tr><td colSpan={6 + customColumns.length} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>Loading...</td></tr>)
-              : products.length === 0 ? (<tr><td colSpan={6 + customColumns.length} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>No products found</td></tr>)
+            {loading ? (<tr><td colSpan={5 + customColumns.length} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>Loading...</td></tr>)
+              : products.length === 0 ? (<tr><td colSpan={5 + customColumns.length} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>No products found</td></tr>)
                 : products.map((p) => (
                   <tr key={p.id}>
-                    <td data-label="Product Name" style={{ fontWeight: 500 }}>{p.name}</td>
-                    <td data-label="Barcode"><span style={{ background: 'var(--bg-hover)', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{p.barcode || 'N/A'}</span></td>
+                    <td data-label="Product">
+                      <div style={{ fontWeight: 600 }}>{p.name}</div>
+                      {p.barcode && <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{p.barcode}</div>}
+                      {p.is_service && <span style={{ fontSize: '10px', background: 'var(--accent-blue)', color: 'white', padding: '2px 4px', borderRadius: '4px', marginLeft: '4px' }}>Service</span>}
+                    </td>
                     {customColumns.map((col: any) => (
                       <td key={col.id} data-label={col.name}>
                         <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
@@ -156,9 +210,13 @@ export default function Inventory() {
                       </span>
                     </td>
                     <td data-label="Stock">
-                      <span style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', fontWeight: 500, background: p.stock <= 5 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: p.stock <= 5 ? 'var(--danger)' : 'var(--success)' }}>
-                        {p.stock} {p.unit || 'Pcs'}
-                      </span>
+                      {p.is_service ? (
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>-</span>
+                      ) : (
+                        <span style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', fontWeight: 500, background: p.stock <= 5 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: p.stock <= 5 ? 'var(--danger)' : 'var(--success)' }}>
+                          {p.stock} {p.unit || 'Pcs'}
+                        </span>
+                      )}
                     </td>
                     <td data-label="Actions" style={{ textAlign: 'right', display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                       <button title="View History" onClick={() => openHistory(p)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px' }}><History size={16} color="var(--accent-blue)" /></button>
@@ -220,6 +278,19 @@ export default function Inventory() {
                 />
               </div>
             </div>
+
+            {currentShop?.allow_service_products && (
+              <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input 
+                  type="checkbox" 
+                  id="is_service_toggle"
+                  checked={formModal.is_service || false} 
+                  onChange={e => setFormModal({ ...formModal, is_service: e.target.checked, stock: e.target.checked ? 0 : formModal.stock })} 
+                />
+                <label htmlFor="is_service_toggle" style={{ margin: 0, cursor: 'pointer' }}>This is a Service (No Stock Tracking)</label>
+              </div>
+            )}
+
             <button type="submit" className="btn btn-primary" style={{ padding: '14px', marginTop: '16px', width: '100%' }}>{formModal.id ? "Save Changes" : "Create Product"}</button>
           </form>
         </Modal>

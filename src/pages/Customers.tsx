@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Users, IndianRupee, Plus, AlertTriangle, Loader2, Edit } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Users, IndianRupee, Plus, AlertTriangle, Loader2, Edit, Download, Upload, Trash2 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -18,11 +18,12 @@ export default function Customers() {
   const [customerForm, setCustomerForm] = useState({ name: '', phone: '', gst_number: '', address: '', opening_balance: '', opening_balance_type: 'to_receive' });
   const [duplicateWarning, setDuplicateWarning] = useState<{ reason: string; existing: any } | null>(null);
   const [editModal, setEditModal] = useState<any>(null);
-  
-  const [paymentModal, setPaymentModal] = useState<any>(null); // { customer_id, shop_id, amount, received_via }
 
-  useEffect(() => { 
-    if (currentShop) fetchData(); 
+  const [paymentModal, setPaymentModal] = useState<any>(null); // { customer_id, shop_id, amount, received_via }
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (currentShop) fetchData();
   }, [currentShop]);
 
   const fetchData = async () => {
@@ -30,8 +31,56 @@ export default function Customers() {
     try {
       const cRes = await api.get(`/customers?shop_id=${currentShop.id}`);
       setCustomers(cRes.data.data || []);
-    } catch (error) { toast.error('Failed to load customers'); } 
+    } catch (error) { toast.error('Failed to load customers'); }
     finally { setLoading(false); }
+  };
+
+  const handleExport = async () => {
+    try {
+      const res = await api.get('/customers/export', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'customers.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (error) {
+      toast.error('Failed to export customers');
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setIsSubmitting(true);
+    try {
+      const res = await api.post('/customers/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success(res.data.message || 'Import successful');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to import customers');
+    } finally {
+      setIsSubmitting(false);
+      if (e.target) e.target.value = ''; // reset file input
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this customer?')) return;
+    try {
+      await api.delete(`/customers/${id}`);
+      toast.success('Customer deleted successfully!');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete customer');
+    }
   };
 
   const resetForm = () => {
@@ -50,8 +99,8 @@ export default function Customers() {
       const existingByName = customers.find(
         c => c.name.trim().toLowerCase() === trimmedName.toLowerCase()
       );
-      const existingByPhone = trimmedPhone 
-        ? customers.find(c => c.phone && c.phone.trim() === trimmedPhone) 
+      const existingByPhone = trimmedPhone
+        ? customers.find(c => c.phone && c.phone.trim() === trimmedPhone)
         : null;
 
       if (existingByName || existingByPhone) {
@@ -63,7 +112,7 @@ export default function Customers() {
         } else {
           reason = `Mobile Number "${existingByPhone?.phone}"`;
         }
-        
+
         setDuplicateWarning({
           reason,
           existing: existingByName || existingByPhone
@@ -86,10 +135,10 @@ export default function Customers() {
       setShowForm(false);
       resetForm();
       fetchData();
-    } catch (error: any) { 
-      toast.error(error.response?.data?.message || 'Failed to add customer'); 
-    } finally { 
-      setIsSubmitting(false); 
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to add customer');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -135,13 +184,24 @@ export default function Customers() {
           <p className="page-subtitle">Manage customer ledger, address, GST and collect pending dues</p>
         </div>
         {!showForm && (
-          <button className="btn btn-primary" onClick={() => { setShowForm(true); resetForm(); }} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Plus size={18} />
-            <span className="desktop-only">Add Customer</span>
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input type="file" accept=".xlsx, .xls" style={{ display: 'none' }} ref={fileInputRef} onChange={handleImport} />
+            <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }} disabled={isSubmitting}>
+              <Upload size={18} />
+              <span className="desktop-only">{isSubmitting ? 'Importing...' : 'Import'}</span>
+            </button>
+            <button className="btn btn-secondary" onClick={handleExport} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Download size={18} />
+              <span className="desktop-only">Download Template</span>
+            </button>
+            <button className="btn btn-primary" onClick={() => { setShowForm(true); resetForm(); }} style={{ padding: '8px 16px', minHeight: '40px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Plus size={18} />
+              <span className="desktop-only">Add Customer</span>
+            </button>
+          </div>
         )}
       </header>
-      
+
       {showForm && (
         <div className="card" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -154,28 +214,28 @@ export default function Customers() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>Customer Name <span style={{ color: 'var(--danger)' }}>*</span></label>
-                <input value={customerForm.name} onChange={e => setCustomerForm({...customerForm, name: e.target.value})} placeholder="Enter Customer / Shop Name" required />
+                <input value={customerForm.name} onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })} placeholder="Enter Customer / Shop Name" required />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>Mobile Number</label>
-                <input value={customerForm.phone} onChange={e => setCustomerForm({...customerForm, phone: e.target.value})} placeholder="e.g. 9876543210" />
+                <input value={customerForm.phone} onChange={e => setCustomerForm({ ...customerForm, phone: e.target.value })} placeholder="e.g. 9876543210" />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>GST Number</label>
-                <input value={customerForm.gst_number} onChange={e => setCustomerForm({...customerForm, gst_number: e.target.value.toUpperCase()})} placeholder="e.g. 33AAAAA0000A1Z5" />
+                <input value={customerForm.gst_number} onChange={e => setCustomerForm({ ...customerForm, gst_number: e.target.value.toUpperCase() })} placeholder="e.g. 33AAAAA0000A1Z5" />
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>Opening Balance (₹)</label>
-                <input type="number" step="0.01" value={customerForm.opening_balance} onChange={e => setCustomerForm({...customerForm, opening_balance: e.target.value})} placeholder="0.00" />
+                <input type="number" step="0.01" value={customerForm.opening_balance} onChange={e => setCustomerForm({ ...customerForm, opening_balance: e.target.value })} placeholder="0.00" />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>Balance Type</label>
-                <select 
-                  value={customerForm.opening_balance_type} 
-                  onChange={e => setCustomerForm({...customerForm, opening_balance_type: e.target.value})}
+                <select
+                  value={customerForm.opening_balance_type}
+                  onChange={e => setCustomerForm({ ...customerForm, opening_balance_type: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-light)', background: 'var(--bg-app)', color: 'var(--text-primary)', fontSize: '14px' }}
                 >
                   <option value="to_receive">To Receive (Customer owes you)</option>
@@ -186,7 +246,7 @@ export default function Customers() {
 
             <div>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>Address</label>
-              <textarea value={customerForm.address} onChange={e => setCustomerForm({...customerForm, address: e.target.value})} placeholder="Enter street, city, pincode..." style={{ minHeight: '60px', width: '100%', resize: 'vertical' }} />
+              <textarea value={customerForm.address} onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })} placeholder="Enter street, city, pincode..." style={{ minHeight: '60px', width: '100%', resize: 'vertical' }} />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
@@ -239,7 +299,8 @@ export default function Customers() {
                   ₹{(c.due_amount || 0).toFixed(2)}
                 </td>
                 <td data-label="Actions" style={{ textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                  <button onClick={() => setEditModal({ id: c.id, name: c.name, phone: c.phone || '', gst_number: c.gst_number || '', address: c.address || '', opening_balance: c.opening_balance || '', opening_balance_type: c.opening_balance_type || 'to_receive' })} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px' }} title="Edit Customer"><Edit size={16} color="var(--text-secondary)"/></button>
+                  <button onClick={() => setEditModal({ id: c.id, name: c.name, phone: c.phone || '', gst_number: c.gst_number || '', address: c.address || '', opening_balance: c.opening_balance || '', opening_balance_type: c.opening_balance_type || 'to_receive' })} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px' }} title="Edit Customer"><Edit size={16} color="var(--text-secondary)" /></button>
+                  <button onClick={() => handleDelete(c.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px' }} title="Delete Customer"><Trash2 size={16} color="var(--danger)" /></button>
                   <button onClick={() => setPaymentModal({ customer_id: c.id, shop_id: currentShop.id, amount: c.due_amount || '', received_via: 'Cash' })} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <IndianRupee size={12} /> Collect Due
                   </button>
@@ -252,26 +313,26 @@ export default function Customers() {
 
       {/* Edit Customer Modal */}
       {editModal && (
-        <Modal 
+        <Modal
           title="Edit Customer"
           onClose={() => setEditModal(null)}
           width="480px"
         >
           <form onSubmit={handleUpdateCustomer} className="modal-body">
-            <div style={{ marginBottom: '16px' }}><label>Customer Name <span style={{ color: 'var(--danger)' }}>*</span></label><input value={editModal.name} onChange={e => setEditModal({...editModal, name: e.target.value})} required /></div>
-            <div style={{ marginBottom: '16px' }}><label>Mobile Number</label><input value={editModal.phone || ''} onChange={e => setEditModal({...editModal, phone: e.target.value})} placeholder="e.g. 9876543210" /></div>
-            <div style={{ marginBottom: '16px' }}><label>GST Number</label><input value={editModal.gst_number || ''} onChange={e => setEditModal({...editModal, gst_number: e.target.value.toUpperCase()})} placeholder="e.g. 33AAAAA0000A1Z5" /></div>
-            
+            <div style={{ marginBottom: '16px' }}><label>Customer Name <span style={{ color: 'var(--danger)' }}>*</span></label><input value={editModal.name} onChange={e => setEditModal({ ...editModal, name: e.target.value })} required /></div>
+            <div style={{ marginBottom: '16px' }}><label>Mobile Number</label><input value={editModal.phone || ''} onChange={e => setEditModal({ ...editModal, phone: e.target.value })} placeholder="e.g. 9876543210" /></div>
+            <div style={{ marginBottom: '16px' }}><label>GST Number</label><input value={editModal.gst_number || ''} onChange={e => setEditModal({ ...editModal, gst_number: e.target.value.toUpperCase() })} placeholder="e.g. 33AAAAA0000A1Z5" /></div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>Opening Balance (₹)</label>
-                <input type="number" step="0.01" value={editModal.opening_balance || ''} onChange={e => setEditModal({...editModal, opening_balance: e.target.value})} placeholder="0.00" />
+                <input type="number" step="0.01" value={editModal.opening_balance || ''} onChange={e => setEditModal({ ...editModal, opening_balance: e.target.value })} placeholder="0.00" />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>Balance Type</label>
-                <select 
-                  value={editModal.opening_balance_type || 'to_receive'} 
-                  onChange={e => setEditModal({...editModal, opening_balance_type: e.target.value})}
+                <select
+                  value={editModal.opening_balance_type || 'to_receive'}
+                  onChange={e => setEditModal({ ...editModal, opening_balance_type: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-light)', background: 'var(--bg-app)', color: 'var(--text-primary)', fontSize: '14px' }}
                 >
                   <option value="to_receive">To Receive (Customer owes you)</option>
@@ -280,7 +341,7 @@ export default function Customers() {
               </div>
             </div>
 
-            <div style={{ marginBottom: '16px' }}><label>Address</label><textarea value={editModal.address || ''} onChange={e => setEditModal({...editModal, address: e.target.value})} placeholder="Street, City, Pincode" style={{ minHeight: '60px', width: '100%', resize: 'vertical' }}></textarea></div>
+            <div style={{ marginBottom: '16px' }}><label>Address</label><textarea value={editModal.address || ''} onChange={e => setEditModal({ ...editModal, address: e.target.value })} placeholder="Street, City, Pincode" style={{ minHeight: '60px', width: '100%', resize: 'vertical' }}></textarea></div>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ padding: '14px', marginTop: '16px', width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               {isSubmitting ? (
                 <>
@@ -297,7 +358,7 @@ export default function Customers() {
 
       {/* Duplicate Warning Confirmation Modal */}
       {duplicateWarning && (
-        <Modal 
+        <Modal
           title="Duplicate Customer Alert"
           onClose={() => setDuplicateWarning(null)}
           width="460px"
@@ -325,17 +386,17 @@ export default function Customers() {
             </p>
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
+              <button
+                type="button"
+                className="btn btn-secondary"
                 onClick={() => setDuplicateWarning(null)}
                 disabled={isSubmitting}
               >
                 Cancel & Edit
               </button>
-              <button 
-                type="button" 
-                className="btn btn-primary" 
+              <button
+                type="button"
+                className="btn btn-primary"
                 onClick={() => handleAddCustomer(undefined, true)}
                 disabled={isSubmitting}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
@@ -355,26 +416,26 @@ export default function Customers() {
       )}
 
       {paymentModal && (
-        <Modal 
+        <Modal
           title="Receive Payment (Due)"
           onClose={() => setPaymentModal(null)}
           width="480px"
         >
           <form onSubmit={handleReceivePayment} className="modal-body">
-              <div className="flex-row gap-4">
-                <div style={{ flex: 1 }}><label>Amount Received (₹)</label><input type="number" step="0.01" autoComplete="off" name="pay_amt_cust" value={paymentModal.amount} onChange={e => setPaymentModal({...paymentModal, amount: e.target.value})} required /></div>
-                <div style={{ flex: 1 }}>
-                  <label>Received Via</label>
-                  <Select
-                    options={[{value: 'Cash', label: 'Cash'}, {value: 'UPI', label: 'UPI'}]}
-                    value={paymentModal.received_via ? {value: paymentModal.received_via, label: paymentModal.received_via} : null}
-                    onChange={(opt: any) => setPaymentModal({...paymentModal, received_via: opt?.value})}
-                    styles={selectStyles}
-                  />
-                </div>
+            <div className="flex-row gap-4">
+              <div style={{ flex: 1 }}><label>Amount Received (₹)</label><input type="number" step="0.01" autoComplete="off" name="pay_amt_cust" value={paymentModal.amount} onChange={e => setPaymentModal({ ...paymentModal, amount: e.target.value })} required /></div>
+              <div style={{ flex: 1 }}>
+                <label>Received Via</label>
+                <Select
+                  options={[{ value: 'Cash', label: 'Cash' }, { value: 'UPI', label: 'UPI' }]}
+                  value={paymentModal.received_via ? { value: paymentModal.received_via, label: paymentModal.received_via } : null}
+                  onChange={(opt: any) => setPaymentModal({ ...paymentModal, received_via: opt?.value })}
+                  styles={selectStyles}
+                />
               </div>
-              <button type="submit" className="btn btn-primary" style={{ padding: '14px', marginTop: '16px', width: '100%' }}>Confirm Payment</button>
-            </form>
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ padding: '14px', marginTop: '16px', width: '100%' }}>Confirm Payment</button>
+          </form>
         </Modal>
       )}
     </div>

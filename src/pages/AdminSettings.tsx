@@ -150,7 +150,7 @@ export default function AdminSettings() {
         }
         await api.put(`/businesses/${editModal.data.id}`, payload);
       } else if (editModal.type === 'shop') {
-        await api.put(`/shops/${editModal.data.id}`, { name: editModal.data.name, allow_data_reset: Boolean(editModal.data.allow_data_reset) });
+        await api.put(`/shops/${editModal.data.id}`, { name: editModal.data.name, allow_data_reset: Boolean(editModal.data.allow_data_reset), allow_service_products: Boolean(editModal.data.allow_service_products) });
       } else if (editModal.type === 'user') {
         await api.put(`/users/${editModal.data.id}`, { phone: editModal.data.phone, password: editModal.data.password || undefined, full_name: editModal.data.full_name });
       }
@@ -470,6 +470,20 @@ export default function AdminSettings() {
                       <div>
                         <span style={{ fontWeight: 600, display: 'block', fontSize: '13px' }}>Allow Client Data Reset</span>
                         <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Enables "Reset Practice / Financial Year Data" card in client Settings page</span>
+                      </div>
+                    </label>
+                  </div>
+                  <div style={{ marginBottom: '16px', background: 'var(--bg-hover)', padding: '12px', borderRadius: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editModal.data.allow_service_products)}
+                        onChange={e => setEditModal({ ...editModal, data: { ...editModal.data, allow_service_products: e.target.checked } })}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      />
+                      <div>
+                        <span style={{ fontWeight: 600, display: 'block', fontSize: '13px' }}>Allow Service Products</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Enables "Is Service" feature in Inventory for items with no physical stock</span>
                       </div>
                     </label>
                   </div>
