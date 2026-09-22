@@ -17,6 +17,7 @@ exports.createBusinessSchema = zod_1.z.object({
 exports.createShopSchema = zod_1.z.object({
     name: zod_1.z.string().min(3),
     business_id: zod_1.z.string().uuid().optional(),
+    allow_service_products: zod_1.z.boolean().optional(),
 });
 exports.createCustomerSchema = zod_1.z.object({
     name: zod_1.z.string().min(3),
@@ -64,6 +65,7 @@ exports.updateShopSchema = zod_1.z.object({
     next_invoice_number: zod_1.z.number().int().positive().optional(),
     invoice_padding: zod_1.z.number().int().min(1).max(10).optional(),
     allow_data_reset: zod_1.z.boolean().optional(),
+    allow_service_products: zod_1.z.boolean().optional(),
     custom_column_definitions: zod_1.z.array(zod_1.z.object({
         id: zod_1.z.string(),
         name: zod_1.z.string(),
