@@ -113,6 +113,7 @@ app.listen(port, async () => {
         await (0, db_1.default) `ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(12, 2) DEFAULT 0;`;
         await (0, db_1.default) `ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_pay';`;
         await (0, db_1.default) `ALTER TABLE shops ADD COLUMN IF NOT EXISTS custom_column_definitions JSONB DEFAULT '[]'::jsonb;`;
+        await (0, db_1.default) `ALTER TABLE shops ADD COLUMN IF NOT EXISTS allow_service_products BOOLEAN DEFAULT false;`;
         await (0, db_1.default) `ALTER TABLE products ADD COLUMN IF NOT EXISTS unit VARCHAR(50) DEFAULT 'Pcs';`;
         await (0, db_1.default) `ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2) DEFAULT 0;`;
         await (0, db_1.default) `ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_type VARCHAR(20) DEFAULT 'inclusive';`;
