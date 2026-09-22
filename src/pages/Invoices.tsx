@@ -4,7 +4,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { formatDate } from '../lib/utils';
 import Modal from '../components/Modal';
-
+import Pagination from '../components/Pagination';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Invoices() {
@@ -12,6 +12,8 @@ export default function Invoices() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
   const [printOrder, setPrintOrder] = useState<any>(null);
   const [printCopyType, setPrintCopyType] = useState('Original');
   const [customPrintCopy, setCustomPrintCopy] = useState('');
@@ -46,6 +48,9 @@ export default function Invoices() {
     (o.customer?.name && o.customer.name.toLowerCase().includes(search.toLowerCase()))
   );
 
+  const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+  const paginatedOrders = filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   return (
     <div style={{ paddingBottom: '100px' }}>
       <header className="page-header" style={{ marginBottom: '24px' }}>
@@ -67,7 +72,7 @@ export default function Invoices() {
               type="text" 
               placeholder="Search by Bill No or Customer..." 
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               style={{ paddingLeft: '36px', width: '100%', height: '36px' }}
             />
           </div>
@@ -90,7 +95,7 @@ export default function Invoices() {
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading...</td></tr>
               ) : filteredOrders.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>No invoices found</td></tr>
-              ) : filteredOrders.map(order => (
+              ) : paginatedOrders.map(order => (
                 <tr key={order.id}>
                   <td data-label="Bill No" style={{ fontFamily: 'monospace', fontWeight: 500, fontSize: '13px' }}>
                     {order.invoice_number || order.id.split('-')[0].toUpperCase()}
@@ -141,6 +146,14 @@ export default function Invoices() {
               ))}
             </tbody>
           </table>
+          
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredOrders.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </div>
       </div>
 

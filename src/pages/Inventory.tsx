@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Edit, History, Plus, Sliders, Download, Upload } from 'lucide-react';
+import { Trash2, Edit, History, Plus, Sliders, Download, Upload, Search } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import Select from 'react-select';
 import { selectStyles } from '../lib/utils';
 import Modal from '../components/Modal';
+import Pagination from '../components/Pagination';
 
 export default function Inventory() {
   const { currentShop, hasPermission } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
 
   const [formModal, setFormModal] = useState<any>(null);
   const [adjustModal, setAdjustModal] = useState<any>(null);
@@ -148,6 +152,14 @@ export default function Inventory() {
     } catch (error: any) { toast.error(error.response?.data?.message || 'Failed to adjust stock'); }
   };
 
+  const filteredProducts = products.filter(p => 
+    (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.barcode || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   return (
     <div>
       <header className="page-header">
@@ -173,6 +185,21 @@ export default function Inventory() {
       </header>
 
       <div className="table-container">
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 600 }}>Product Catalog</h2>
+          </div>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
+            <Search size={16} color="var(--text-secondary)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+            <input 
+              type="text" 
+              placeholder="Search by name or barcode..." 
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              style={{ width: '100%', padding: '8px 12px 8px 36px', borderRadius: '6px', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '14px' }}
+            />
+          </div>
+        </div>
         <table>
           <thead>
             <tr>
@@ -188,8 +215,8 @@ export default function Inventory() {
           </thead>
           <tbody>
             {loading ? (<tr><td colSpan={5 + customColumns.length} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>Loading...</td></tr>)
-              : products.length === 0 ? (<tr><td colSpan={5 + customColumns.length} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>No products found</td></tr>)
-                : products.map((p) => (
+              : filteredProducts.length === 0 ? (<tr><td colSpan={5 + customColumns.length} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>No products found</td></tr>)
+                : paginatedProducts.map((p) => (
                   <tr key={p.id}>
                     <td data-label="Product">
                       <div style={{ fontWeight: 600 }}>{p.name}</div>
@@ -228,6 +255,14 @@ export default function Inventory() {
                 ))}
           </tbody>
         </table>
+
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredProducts.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
       </div>
 
       {formModal && (
