@@ -6,6 +6,7 @@ import Select from 'react-select';
 import { selectStyles } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import Modal from '../components/Modal';
+import Pagination from '../components/Pagination';
 
 export default function Purchases() {
   const { currentShop } = useAuth();
@@ -35,6 +36,9 @@ export default function Purchases() {
   const [viewModal, setViewModal] = useState<{ type: 'po' | 'invoice', data: any } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [listSearchQuery, setListSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
 
   useEffect(() => {
     if (currentShop) {
@@ -241,6 +245,17 @@ export default function Purchases() {
 
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.barcode?.includes(searchQuery));
 
+  const filteredOrders = orders.filter(o => (o.supplier?.name || '').toLowerCase().includes(listSearchQuery.toLowerCase()));
+  const totalOrdersPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+  const paginatedOrders = filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const filteredInvoices = invoices.filter(inv => 
+    (inv.supplier?.name || '').toLowerCase().includes(listSearchQuery.toLowerCase()) || 
+    (inv.invoice_number || '').toLowerCase().includes(listSearchQuery.toLowerCase())
+  );
+  const totalInvoicesPages = Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE);
+  const paginatedInvoices = filteredInvoices.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   return (
     <div>
       <header className="page-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
@@ -262,13 +277,28 @@ export default function Purchases() {
       </header>
 
       <div className="custom-scrollbar" style={{ display: 'flex', gap: '20px', borderBottom: '1px solid var(--border-light)', marginBottom: '24px', padding: '0 24px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
-        <button className={`tab ${activeTab === 'POs' ? 'active' : ''}`} onClick={() => { setActiveTab('POs'); setShowPOForm(false); setEditingPoId(null); setPoItems([]); }} style={{ padding: '12px 0', background: 'transparent', border: 'none', borderBottom: activeTab === 'POs' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'POs' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer' }}>
+        <button className={`tab ${activeTab === 'POs' ? 'active' : ''}`} onClick={() => { setActiveTab('POs'); setShowPOForm(false); setEditingPoId(null); setPoItems([]); setListSearchQuery(''); setCurrentPage(1); }} style={{ padding: '12px 0', background: 'transparent', border: 'none', borderBottom: activeTab === 'POs' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'POs' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer' }}>
           Purchase Orders
         </button>
-        <button className={`tab ${activeTab === 'Invoices' ? 'active' : ''}`} onClick={() => { setActiveTab('Invoices'); setShowPOForm(false); setEditingPoId(null); setPoItems([]); }} style={{ padding: '12px 0', background: 'transparent', border: 'none', borderBottom: activeTab === 'Invoices' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'Invoices' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer' }}>
+        <button className={`tab ${activeTab === 'Invoices' ? 'active' : ''}`} onClick={() => { setActiveTab('Invoices'); setShowPOForm(false); setEditingPoId(null); setPoItems([]); setListSearchQuery(''); setCurrentPage(1); }} style={{ padding: '12px 0', background: 'transparent', border: 'none', borderBottom: activeTab === 'Invoices' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'Invoices' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer' }}>
           Purchase Invoices (History)
         </button>
       </div>
+      
+      {!showPOForm && (
+        <div style={{ padding: '0 24px 20px', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
+            <Search size={16} color="var(--text-secondary)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+            <input 
+              type="text" 
+              placeholder={`Search ${activeTab === 'POs' ? 'Supplier Name' : 'Supplier Name or Invoice'}...`}
+              value={listSearchQuery}
+              onChange={(e) => { setListSearchQuery(e.target.value); setCurrentPage(1); }}
+              style={{ width: '100%', padding: '8px 12px 8px 36px', borderRadius: '6px', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '14px' }}
+            />
+          </div>
+        </div>
+      )}
 
       {showPOForm && activeTab === 'POs' && (
         <Modal
@@ -391,8 +421,8 @@ export default function Purchases() {
               <tr><th>Date</th><th>Supplier</th><th style={{ textAlign: 'center' }}>Status</th><th style={{ textAlign: 'right' }}>Total Amount</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
             </thead>
             <tbody>
-              {orders.length === 0 ? (<tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px' }}>No Purchase Orders found</td></tr>)
-                : orders.map((o) => (
+              {filteredOrders.length === 0 ? (<tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px' }}>No Purchase Orders found</td></tr>)
+                : paginatedOrders.map((o) => (
                   <tr key={o.id}>
                     <td data-label="Date">{new Date(o.created_at).toLocaleDateString()}</td>
                     <td data-label="Supplier" style={{ fontWeight: 500 }}>{o.supplier?.name}</td>
@@ -435,6 +465,14 @@ export default function Purchases() {
                 ))}
             </tbody>
           </table>
+          
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalOrdersPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredOrders.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </div>
       )}
 
@@ -446,8 +484,8 @@ export default function Purchases() {
             </thead>
             <tbody>
               {loading ? (<tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>Loading...</td></tr>)
-                : invoices.length === 0 ? (<tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>No invoices found</td></tr>)
-                  : invoices.map((inv) => (
+                : filteredInvoices.length === 0 ? (<tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>No invoices found</td></tr>)
+                  : paginatedInvoices.map((inv) => (
                     <tr key={inv.id}>
                       <td data-label="Date">{new Date(inv.created_at).toLocaleDateString()}</td>
                       <td data-label="Invoice No">{inv.invoice_number || '-'}</td>
@@ -463,6 +501,14 @@ export default function Purchases() {
                   ))}
             </tbody>
           </table>
+          
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalInvoicesPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredInvoices.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </div>
       )}
 
