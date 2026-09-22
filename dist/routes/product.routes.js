@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const product_controller_1 = require("../controllers/product.controller");
 const authMiddleware_1 = require("../middlewares/authMiddleware");
+const upload_1 = require("../middlewares/upload");
 const router = (0, express_1.Router)();
 router.use(authMiddleware_1.protect);
 /**
@@ -72,6 +73,8 @@ router.post('/', product_controller_1.createProduct);
  *         description: List of products
  */
 router.get('/', product_controller_1.getProducts);
+router.get('/export', product_controller_1.exportProducts);
+router.post('/import', upload_1.upload.single('file'), product_controller_1.importProducts);
 /**
  * @swagger
  * /api/products/barcode/{barcode}:

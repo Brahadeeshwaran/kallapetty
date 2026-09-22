@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const customer_controller_1 = require("../controllers/customer.controller");
 const authMiddleware_1 = require("../middlewares/authMiddleware");
+const upload_1 = require("../middlewares/upload");
 const router = (0, express_1.Router)();
 router.use(authMiddleware_1.protect);
 /**
@@ -11,8 +12,11 @@ router.use(authMiddleware_1.protect);
  *   name: Customers
  *   description: Customer Management
  */
+router.get('/export', customer_controller_1.exportCustomers);
+router.post('/import', upload_1.upload.single('file'), customer_controller_1.importCustomers);
 router.get('/:id/prices', customer_controller_1.getCustomerPrices);
 router.put('/:id', customer_controller_1.updateCustomer);
+router.delete('/:id', customer_controller_1.deleteCustomer);
 /**
  * @swagger
  * /api/customers:
