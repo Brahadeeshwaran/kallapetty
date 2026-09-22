@@ -91,52 +91,81 @@ app.listen(port, async () => {
   logger.info(`[server]: Server is running at port ${port}`);
   try {
     await sql`SELECT 1`;
-    await sql`
-      CREATE TABLE IF NOT EXISTS customer_product_prices (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-        product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-        custom_price NUMERIC(10, 2) NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT unique_customer_product UNIQUE (customer_id, product_id)
-      );
-    `;
-    await sql`
-      CREATE TABLE IF NOT EXISTS supplier_product_prices (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
-        product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-        last_purchase_price NUMERIC(10, 2) NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT unique_supplier_product UNIQUE (supplier_id, product_id)
-      );
-    `;
+    
+    // 1. Run full schema.sql to create any newly added tables (like purchase_orders, etc) safely
+    const fs = require('fs');
+    const path = require('path');
+    try {
+      const schemaPath = path.join(__dirname, 'db', 'schema.sql');
+      if (fs.existsSync(schemaPath)) {
+        const schema = fs.readFileSync(schemaPath, 'utf8');
+        await sql.unsafe(schema);
+        logger.info('[database]: schema.sql executed successfully (missing tables created).');
+      }
+    } catch (err) {
+      logger.error('[database]: Failed to execute schema.sql', err);
+    }
+
+    // 2. Comprehensive ALTER TABLE for all existing tables that got new columns
+    // Businesses
+    await sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS address TEXT;`;
+    await sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS gst_number VARCHAR(50);`;
+    await sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS upi_id VARCHAR(100);`;
+    await sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS bank_details TEXT;`;
+    await sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS terms_conditions TEXT;`;
+    await sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo_url TEXT;`;
+    await sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS invoice_format VARCHAR(50) DEFAULT 'thermal';`;
+
+    // Customers
     await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;`;
     await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS gst_number VARCHAR(50);`;
     await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(10, 2) DEFAULT 0;`;
     await sql`ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_receive';`;
+
+    // Suppliers
+    await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address TEXT;`;
+    await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS gst_number VARCHAR(50);`;
+    await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS outstanding_balance NUMERIC(12, 2) DEFAULT 0;`;
     await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(12, 2) DEFAULT 0;`;
     await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_pay';`;
+
+    // Shops
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS custom_column_definitions JSONB DEFAULT '[]'::jsonb;`;
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS allow_service_products BOOLEAN DEFAULT false;`;
-    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS unit VARCHAR(50) DEFAULT 'Pcs';`;
-    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2) DEFAULT 0;`;
-    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_type VARCHAR(20) DEFAULT 'inclusive';`;
-    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS is_service BOOLEAN DEFAULT false;`;
-    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_attributes JSONB DEFAULT '{}'::jsonb;`;
-    await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(50);`;
-    await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS custom_inputs JSONB DEFAULT '{}'::jsonb;`;
-    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS transport_name VARCHAR(255);`;
-    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS lr_number VARCHAR(100);`;
-    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS lr_date VARCHAR(50);`;
-    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_interstate BOOLEAN DEFAULT false;`;
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_prefix VARCHAR(50) DEFAULT '';`;
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_suffix VARCHAR(50) DEFAULT '';`;
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS next_invoice_number INT DEFAULT 1;`;
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS invoice_padding INT DEFAULT 1;`;
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS allow_data_reset BOOLEAN DEFAULT false;`;
+
+    // Products
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS unit VARCHAR(50) DEFAULT 'Pcs';`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_type VARCHAR(20) DEFAULT 'inclusive';`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS is_service BOOLEAN DEFAULT false;`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_attributes JSONB DEFAULT '{}'::jsonb;`;
+
+    // Orders
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(10, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(10, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS expected_delivery TIMESTAMP;`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT;`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status VARCHAR(50);`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_notes TEXT;`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP;`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS transport_name VARCHAR(255);`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS lr_number VARCHAR(100);`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS lr_date VARCHAR(50);`;
+    await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_interstate BOOLEAN DEFAULT false;`;
     await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(100);`;
-    logger.info('[database]: Connected to PostgreSQL & custom pricing tables verified!');
+
+    // Order Items
+    await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(50);`;
+    await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(10, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS custom_inputs JSONB DEFAULT '{}'::jsonb;`;
+
+    logger.info('[database]: Connected to PostgreSQL & all missing columns/tables verified!');
   } catch (error) {
     logger.error('[database]: Failed to connect to PostgreSQL:', error);
   }
