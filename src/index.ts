@@ -119,6 +119,9 @@ app.listen(port, async () => {
     await sql`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance_type VARCHAR(20) DEFAULT 'to_pay';`;
     await sql`ALTER TABLE shops ADD COLUMN IF NOT EXISTS custom_column_definitions JSONB DEFAULT '[]'::jsonb;`;
     await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS unit VARCHAR(50) DEFAULT 'Pcs';`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2) DEFAULT 0;`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_type VARCHAR(20) DEFAULT 'inclusive';`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS is_service BOOLEAN DEFAULT false;`;
     await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_attributes JSONB DEFAULT '{}'::jsonb;`;
     await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(50);`;
     await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS custom_inputs JSONB DEFAULT '{}'::jsonb;`;
